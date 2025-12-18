@@ -1,0 +1,388 @@
+{
+  "info": {
+    "name": "School ERP API (Postman)",
+    "_postman_id": "school-erp-api-collection",
+    "description": "A minimal Postman collection for School ERP backend. Import into Postman and set environment variables before running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","auth","login"]
+            },
+            "description": "Login and receive a JWT token. This request will auto-save `token` and `tenantId` into environment variables.",
+            "response": [],
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "const res = pm.response.json();",
+                    "if (res && res.token) {",
+                    "  pm.environment.set('token', res.token);",
+                    "}",
+                    "if (res && res.tenantId) {",
+                    "  pm.environment.set('tenantId', res.tenantId);",
+                    "}",
+                    "console.log('Saved token and tenantId (if present) to environment');"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "Register (create user)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New User\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password\",\n  \"roles\": [\"admin\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","auth","register"]
+            },
+            "description": "Create a user. This endpoint requires an Authorization token for the creator (e.g., Super Admin). This test will attempt to save `tenantId` from the response.",
+            "response": [],
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "const res = pm.response.json();",
+                    "if (res && res.tenantId) {",
+                    "  pm.environment.set('tenantId', res.tenantId);",
+                    "} else if (res && res.data && res.data.tenantId) {",
+                    "  pm.environment.set('tenantId', res.data.tenantId);",
+                    "}",
+                    "console.log('Attempted to save tenantId from register response');"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "Create Tenant",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo School\",\n  \"slug\": \"demo-school\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","tenants"]
+            },
+            "description": "Create a tenant. Test script saves returned tenant id into environment variable `tenantId`.",
+            "response": [],
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "const res = pm.response.json();",
+                    "if (res && res.id) {",
+                    "  pm.environment.set('tenantId', res.id);",
+                    "} else if (res && res.data && res.data.id) {",
+                    "  pm.environment.set('tenantId', res.data.id);",
+                    "}",
+                    "console.log('Saved tenantId (if present) to environment');"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get Tenants",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","tenants"]
+            },
+            "description": "List tenants",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "Create Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"teacher\",\n  \"description\": \"Teacher role\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","roles"]
+            },
+            "description": "Create a role. Test saves `roleId` to environment.",
+            "response": [],
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "const res = pm.response.json();",
+                    "if (res && res.id) {",
+                    "  pm.environment.set('roleId', res.id);",
+                    "} else if (res && res.data && res.data.id) {",
+                    "  pm.environment.set('roleId', res.data.id);",
+                    "}",
+                    "console.log('Saved roleId (if present) to environment');"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get Roles",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","roles"]
+            },
+            "description": "List roles",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"API User\",\n  \"email\": \"apiuser@example.com\",\n  \"password\": \"password\",\n  \"roles\": [ \"{{roleId}}\" ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","users"]
+            },
+            "description": "Create a user and save `userId` into environment.",
+            "response": [],
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "const res = pm.response.json();",
+                    "if (res && res.id) {",
+                    "  pm.environment.set('userId', res.id);",
+                    "} else if (res && res.data && res.data.id) {",
+                    "  pm.environment.set('userId', res.data.id);",
+                    "}",
+                    "console.log('Saved userId (if present) to environment');"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "Get Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","users"]
+            },
+            "description": "List users",
+            "response": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Students",
+      "item": [
+        {
+          "name": "Get Onboarding Steps",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/onboarding/steps",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","students","onboarding","steps"]
+            },
+            "description": "Returns UI-friendly onboarding step definitions (sections & fields).",
+            "response": []
+          }
+        },
+        {
+          "name": "Start Onboarding (create student partial)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentName\": \"Test Student\",\n  \"session\": \"2025-2026\",\n  \"admissionClass\": \"I\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students/onboarding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","students","onboarding"]
+            },
+            "description": "Starts onboarding by creating a minimal student record and returning the created student object (including `id`). The test script will save `studentId` from the response.",
+            "response": [],
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "const res = pm.response.json();",
+                    "if (res && res.data && res.data.id) {",
+                    "  pm.environment.set('studentId', res.data.id);",
+                    "  console.log('Saved studentId:', res.data.id);",
+                    "} else if (res && res.id) {",
+                    "  pm.environment.set('studentId', res.id);",
+                    "  console.log('Saved studentId:', res.id);",
+                    "}",
+                    ""
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "Update Onboarding (partial update)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"onboardingData\": { \"studentMobile\": \"+911234567890\" },\n  \"onboardingStep\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}/onboarding",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","students","{{studentId}}","onboarding"]
+            },
+            "description": "Patch onboarding data for the student with id `{{studentId}}`. Use the `onboardingStep` to progress and set `onboardingCompleted` when finished.",
+            "response": []
+          }
+        },
+        {
+          "name": "Get Students (list)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","students"]
+            },
+            "description": "Retrieve a pageable list of students. Query params may be supported depending on your backend implementation.",
+            "response": []
+          }
+        },
+        {
+          "name": "Get Student by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/students/{{studentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","students","{{studentId}}"]
+            },
+            "description": "Get a single student record by `studentId`.",
+            "response": []
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "tenantId", "value": "" },
+    { "key": "studentId", "value": "" }
+  ]
+}
