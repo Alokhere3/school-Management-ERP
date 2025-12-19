@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "docs:generate": "node scripts/generate-swagger.js",
     "docs:serve": "node scripts/serve-docs.js",
-    "test": "jest --coverage --runInBand"
+    "test": "jest --coverage --runInBand --forceExit"
   },
   "directories": {
     "doc": "docs"

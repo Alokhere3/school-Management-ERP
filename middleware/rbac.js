@@ -48,24 +48,34 @@ function authorize(resource, action, scope = null) {
             const RolePermission = require('../models/RolePermission');
             const Permission = require('../models/Permission');
 
-            // Fetch user roles for this tenant
-            const userRoles = await UserRole.findAll({
-                where: { userId, tenantId },
-                include: [
-                    {
-                        model: Role,
-                        as: 'role',
-                        required: true
-                    }
-                ]
-            });
-
+            // Fetch user roles for this tenant (DB may store either `roleId` or enum `role`)
+            // Include system-scoped roles (tenantId=null) as well as tenant-scoped
+            const userRoles = await UserRole.findAll({ where: { userId, [Op.or]: [{ tenantId }, { tenantId: null }] } });
             if (!userRoles || userRoles.length === 0) {
                 return res.status(403).json({ message: 'Forbidden: No roles assigned for this tenant' });
             }
 
-            // Fetch all permissions assigned to these roles for this resource+action
-            const roleIds = userRoles.map(ur => ur.roleId);
+            // Determine roleIds. Some deployments store `roleId` on user_roles,
+            // others store `role` enum. Support both: if `roleId` present use it,
+            // otherwise map enum values to Role records to get IDs.
+            let roleIds = [];
+            if (userRoles[0] && Object.prototype.hasOwnProperty.call(userRoles[0], 'roleId') && userRoles[0].roleId) {
+                roleIds = userRoles.map(ur => ur.roleId);
+            } else {
+                // Map enum values like 'SUPER_ADMIN' -> 'Super Admin'
+                const enumRoleNames = userRoles.map(ur => {
+                    const r = ur.role || '';
+                    const formatted = r.charAt(0) + r.slice(1).toLowerCase().replace(/_/g, ' ');
+                    return formatted;
+                });
+                // Find matching Role records (system roles may have tenantId null)
+                const roleRecords = await Role.findAll({
+                    where: {
+                        name: { [Op.in]: enumRoleNames }
+                    }
+                });
+                roleIds = roleRecords.map(r => r.id);
+            }
 
             const rolePermissions = await RolePermission.findAll({
                 where: { roleId: { [Op.in]: roleIds } },
@@ -98,11 +108,25 @@ function authorize(resource, action, scope = null) {
             }
 
             // Attach permission metadata to request for use in controllers
+            // Attach permission metadata to request for use in controllers
+            // Provide userRoles as human-readable names where possible
+            let userRoleNames = [];
+            if (userRoles[0] && Object.prototype.hasOwnProperty.call(userRoles[0], 'roleId') && userRoles[0].roleId) {
+                // Attempt to fetch Role names
+                const rolesFound = await Role.findAll({ where: { id: { [Op.in]: roleIds } } });
+                userRoleNames = rolesFound.map(r => r.name);
+            } else {
+                userRoleNames = userRoles.map(ur => {
+                    const r = ur.role || '';
+                    return r.charAt(0) + r.slice(1).toLowerCase().replace(/_/g, ' ');
+                });
+            }
+
             req.permission = {
                 resource,
                 action,
                 level: maxLevel,
-                userRoles: userRoles.map(ur => ur.role.name)
+                userRoles: userRoleNames
             };
 
             // Apply row-level scope filter if provided
@@ -137,15 +161,27 @@ async function checkPermission(user, resource, action) {
     const RolePermission = require('../models/RolePermission');
     const Permission = require('../models/Permission');
 
-    const userRoles = await UserRole.findAll({
-        where: { userId: user.id, tenantId: user.tenantId }
-    });
+    // Include system-scoped roles (tenantId=null) so Super Admin entries are found
+    const userRoles = await UserRole.findAll({ where: { userId: user.id, [Op.or]: [{ tenantId: user.tenantId }, { tenantId: null }] } });
 
     if (!userRoles || userRoles.length === 0) {
         return 'none';
     }
 
-    const roleIds = userRoles.map(ur => ur.roleId);
+    // Determine roleIds (support both roleId and role enum)
+    let roleIds = [];
+    if (userRoles[0] && Object.prototype.hasOwnProperty.call(userRoles[0], 'roleId') && userRoles[0].roleId) {
+        roleIds = userRoles.map(ur => ur.roleId);
+    } else {
+        const enumRoleNames = userRoles.map(ur => {
+            const r = ur.role || '';
+            const formatted = r.charAt(0) + r.slice(1).toLowerCase().replace(/_/g, ' ');
+            return formatted;
+        });
+        const Role = require('../models/Role');
+        const roleRecords = await Role.findAll({ where: { name: { [Op.in]: enumRoleNames } } });
+        roleIds = roleRecords.map(r => r.id);
+    }
 
     const rolePermissions = await RolePermission.findAll({
         where: { roleId: { [Op.in]: roleIds } },

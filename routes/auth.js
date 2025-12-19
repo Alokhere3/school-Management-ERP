@@ -35,7 +35,7 @@ try {
  *     tags:
  *       - Auth
  *     summary: Register tenant and admin
- *     description: Create a new tenant with an admin user. If roles parameter is provided, authentication is required and user must have 'create' permission on 'roles' resource. Note: Only Super Admin can assign 'School Admin' role to users.
+@     description: Create tenant with admin. Assign roles if authenticated with user_management create permission.
  *     requestBody:
  *       required: true
  *       content:
@@ -52,12 +52,24 @@ try {
  *               password:
  *                 type: string
  *                 description: Admin user password (min 6 characters)
- *               roles:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Array of role names to assign to the admin user (e.g., ["Super Admin"], ["School Admin", "Principal"]). Requires authentication and 'create' permission on 'roles' resource. IMPORTANT: Only Super Admin can assign 'School Admin' role.
- *                 example: ["School Admin"]
+@               roles:
+@                 type: array
+@                 items:
+@                   type: string
+@                   enum:
+@                     - Super Admin
+@                     - School Admin
+@                     - Principal
+@                     - Teacher
+@                     - Accountant
+@                     - HR Manager
+@                     - Librarian
+@                     - Transport Manager
+@                     - Hostel Warden
+@                     - Parent
+@                     - Student
+@                 description: Role names to assign
+@                 example: ["School Admin"]
  *             required:
  *               - name
  *               - email
@@ -160,11 +172,13 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
                 if (parts.length === 2 && /^Bearer$/i.test(parts[0])) {
                     try {
                         const decoded = jwt.verify(parts[1], process.env.JWT_SECRET);
-                        // Normalize token payload into req.user expected shape
+                        // Normalize token payload into req.user expected shape (include roles array)
+                        const rolesFromToken = decoded.roles || (decoded.role ? (Array.isArray(decoded.role) ? decoded.role : [decoded.role]) : []);
                         req.user = {
                             id: decoded.user_id || decoded.userId || decoded.id,
                             tenantId: decoded.tenantId || decoded.tenantId || decoded.tenantId,
-                            role: decoded.role || decoded.user_role
+                            roles: rolesFromToken,
+                            role: (Array.isArray(rolesFromToken) && rolesFromToken.length > 0) ? rolesFromToken[0] : (decoded.role || decoded.user_role || null)
                         };
                     } catch (e) {
                         return res.status(401).json({ success: false, error: 'Invalid auth token', code: 'INVALID_TOKEN' });
@@ -195,16 +209,22 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
 
                 // Check if the requester has Super Admin role
                 const userSuperAdminRole = await UserRole.findOne({
-                    where: { 
-                        userId: req.user.id || req.user.userId, 
-                        tenantId: req.user.tenantId,
-                        role: 'SUPER_ADMIN'
+                    where: {
+                        userId: req.user.id || req.user.userId,
+                        role: 'SUPER_ADMIN',
+                        [require('sequelize').Op.or]: [
+                            { tenantId: req.user.tenantId },
+                            { tenantId: null }
+                        ]
                     }
                 });
 
-                // Also check token role for backward compatibility
-                const tokenRole = (req.user && req.user.role) ? String(req.user.role).toLowerCase() : null;
-                const isSuperAdminFromToken = tokenRole && (tokenRole === 'super admin' || tokenRole === 'superadmin');
+                // Also check token role for backward compatibility. Normalize
+                // values like 'SUPER_ADMIN', 'super_admin', 'super admin' etc.
+                const _tokenRoleRaw = req.user && req.user.role;
+                const _tokenRoles = Array.isArray(_tokenRoleRaw) ? _tokenRoleRaw : (_tokenRoleRaw ? [_tokenRoleRaw] : []);
+                const _normalize = v => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                const isSuperAdminFromToken = _tokenRoles.some(r => _normalize(r) === 'superadmin');
 
                 if (!userSuperAdminRole && !isSuperAdminFromToken) {
                     return res.status(403).json({ 
@@ -215,17 +235,19 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
                 }
             }
 
-            // Check if authenticated user has permission to create roles
-            let userPermissionLevel = await checkPermission(req.user, 'roles', 'create');
-
+            // Check if authenticated user has permission to manage users (which includes role assignment)
+            let userPermissionLevel = await checkPermission(req.user, 'user_management', 'create');
             // Backward-compatibility: some tokens/users carry a `role` string
             // (e.g. 'admin') that isn't represented in UserRole. Treat those
             // as having full create permission for onboarding flows.
             try {
-                const tokenRole = (req.user && req.user.role) ? String(req.user.role).toLowerCase() : null;
-                if (tokenRole && (tokenRole === 'admin' || tokenRole === 'super admin' || tokenRole === 'superadmin')) {
-                    userPermissionLevel = 'full';
-                }
+                const _tokenRoleRaw2 = req.user && req.user.role;
+                const _tokenRoles2 = Array.isArray(_tokenRoleRaw2) ? _tokenRoleRaw2 : (_tokenRoleRaw2 ? [_tokenRoleRaw2] : []);
+                const _isElevated = _tokenRoles2.some(r => {
+                    const n = _normalize(r);
+                    return n === 'admin' || n === 'superadmin';
+                });
+                if (_isElevated) userPermissionLevel = 'full';
             } catch (e) {
                 // ignore and proceed with computed permission
             }
@@ -288,7 +310,7 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
             }
             
             // Validate that all requested roles exist (regardless of permission level)
-            const roleRecords = await Role.findAll({ 
+            let roleRecords = await Role.findAll({ 
                 where: { 
                     name: roles,
                     [require('sequelize').Op.or]: [
@@ -298,12 +320,36 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
                 } 
             });
             
+            // If no roles found, try seeding the default roles first
+            if (roleRecords.length === 0 && req.user.tenantId) {
+                const { seedTenantRoles } = require('../services/rolePermissionService');
+                try {
+                    await seedTenantRoles(req.user.tenantId);
+                    logger.info(`✅ Seeded default roles for tenant: ${req.user.tenantId}`);
+                    // Re-query roles after seeding
+                    const roleRecordsAfterSeed = await Role.findAll({ 
+                        where: { 
+                            name: roles,
+                            [require('sequelize').Op.or]: [
+                                { tenantId: null, isSystemRole: true },
+                                { tenantId: req.user.tenantId }
+                            ]
+                        } 
+                    });
+                    if (roleRecordsAfterSeed.length > 0) {
+                        roleRecords.push(...roleRecordsAfterSeed);
+                    }
+                } catch (seedError) {
+                    logger.warn('Could not seed roles during registration:', seedError);
+                }
+            }
+            
             const foundRoleNames = roleRecords.map(r => r.name);
             const notFound = roles.filter(r => !foundRoleNames.includes(r));
             if (notFound.length > 0) {
                 return res.status(400).json({ 
                     success: false, 
-                    error: `Role(s) not found: ${notFound.join(', ')}`,
+                    error: `Role(s) not found: ${notFound.join(', ')}. Available roles: School Admin, Principal, Teacher, etc.`,
                     code: 'ROLES_NOT_FOUND',
                     details: notFound
                 });

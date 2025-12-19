@@ -339,7 +339,7 @@ describe('auth routes - register/login', () => {
         expect(res.status).toBe(201);
         expect(res.body.success).toBe(true);
         expect(res.body.roles).toBeDefined();
-        expect(checkPermission).toHaveBeenCalledWith(expect.any(Object), 'roles', 'create');
+        expect(checkPermission).toHaveBeenCalledWith(expect.any(Object), 'user_management', 'create');
         expect(mockUserRole.create).toHaveBeenCalledWith(expect.objectContaining({
             role: 'SCHOOL_ADMIN'
         }));

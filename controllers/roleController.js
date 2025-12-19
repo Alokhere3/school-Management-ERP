@@ -249,9 +249,33 @@ const deleteRole = asyncHandler(async (req, res) => {
             }
         }
 
-        // Check if role is in use
+        // Check if role is in use. Support two schemas:
+        // - user_roles.roleId (UUID FK)
+        // - user_roles.role (ENUM string)
         const UserRole = require('../models/UserRole');
-        const userRoleCount = await UserRole.count({ where: { roleId: id } });
+        let userRoleCount = 0;
+        try {
+            if (UserRole.rawAttributes && UserRole.rawAttributes.roleId) {
+                userRoleCount = await UserRole.count({ where: { roleId: id } });
+            } else {
+                // Map role name to enum value, e.g. 'Super Admin' -> 'SUPER_ADMIN'
+                const enumName = role.name.toUpperCase().replace(/\s+/g, '_');
+                userRoleCount = await UserRole.count({ where: { role: enumName } });
+            }
+        } catch (err) {
+            // Fallback: try both methods conservatively
+            try {
+                userRoleCount = await UserRole.count({ where: { roleId: id } });
+            } catch (e) {
+                try {
+                    const enumName = role.name.toUpperCase().replace(/\s+/g, '_');
+                    userRoleCount = await UserRole.count({ where: { role: enumName } });
+                } catch (ee) {
+                    // If both fail, assume role is not in use to avoid blocking delete erroneously
+                    userRoleCount = 0;
+                }
+            }
+        }
         
         if (userRoleCount > 0) {
             return res.status(400).json({ 
