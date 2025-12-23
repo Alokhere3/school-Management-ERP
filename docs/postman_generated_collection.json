@@ -1,0 +1,153 @@
+{
+  "info": {
+    "name": "School ERP API (Generated)",
+    "_postman_id": "a1b2c3d4-erp-generated-0000-0000-000000000000",
+    "description": "Basic Postman collection for testing authentication and role flows.\n- Use the provided environment (postman_generated_environment.json)\n- First call 'Login' to get a token and save it to the environment, then call protected endpoints.\n",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "value": "alokhere3@gmail.com",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Alok@1234",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Save token to environment if returned as { token: '...' }",
+              "try {",
+              "  var json = pm.response.json();",
+              "  if (json && json.token) {",
+              "    pm.environment.set('token', json.token);",
+              "    console.log('Saved token to environment');",
+              "  } else if (json && json.accessToken) {",
+              "    pm.environment.set('token', json.accessToken);",
+              "    console.log('Saved accessToken to environment');",
+              "  }",
+              "} catch (e) { console.log('No JSON token in response or parsing error:', e); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Register (public)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Test Tenant\",\n  \"email\": \"test_admin@example.com\",\n  \"password\": \"Test@1234\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["api","auth","register"]
+        }
+      }
+    },
+    {
+      "name": "Auth - Register With Roles (protected)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Tenant With Roles\",\n  \"email\": \"tenant_roles@example.com\",\n  \"password\": \"Test@1234\",\n  \"roles\": [\"School Admin\"]\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api","auth","register"] }
+      }
+    },
+    {
+      "name": "Roles - List",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": { "raw": "{{baseUrl}}/api/roles", "host": ["{{baseUrl}}"], "path": ["api","roles"] }
+      }
+    },
+    {
+      "name": "Users - Create (example)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"new.user@example.com\",\n  \"password\": \"Password1!\",\n  \"firstName\": \"New\",\n  \"lastName\": \"User\"\n}", "options": { "raw": { "language": "json" } } },
+        "url": { "raw": "{{baseUrl}}/api/users", "host": ["{{baseUrl}}"], "path": ["api","users"] }
+      }
+    },
+    {
+      "name": "Students - List (example protected)",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": { "raw": "{{baseUrl}}/api/students", "host": ["{{baseUrl}}"], "path": ["api","students"] }
+      }
+    }
+  ]
+}

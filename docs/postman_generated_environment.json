@@ -1,0 +1,14 @@
+{
+  "id": "erp-env-generated-0000-0000-000000000000",
+  "name": "School ERP Local",
+  "values": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "enabled": true },
+    { "key": "token", "value": "", "enabled": true },
+    { "key": "tenantId", "value": "", "enabled": true },
+    { "key": "email", "value": "alokhere3@gmail.com", "enabled": true },
+    { "key": "password", "value": "Alok@1234", "enabled": true }
+  ],
+  "timestamp": 0,
+  "synced": false,
+  "syncedFilename": ""
+}
