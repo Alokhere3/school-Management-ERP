@@ -10,11 +10,11 @@
   },
   "servers": [
     {
-      "url": "http://localhost:3000",
+      "url": "https://school-management-erp-1dht.onrender.com",
       "description": "Development server"
     },
     {
-      "url": "https://api.yourschool.com",
+      "url": "https://school-management-erp-1dht.onrender.com",
       "description": "Production server"
     }
   ],
