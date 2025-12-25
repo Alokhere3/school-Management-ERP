@@ -10,7 +10,7 @@
   },
   "servers": [
     {
-      "url": "https://school-management-erp-1dht.onrender.com",
+      "url": "http://localhost:3000",
       "description": "Development server"
     },
     {

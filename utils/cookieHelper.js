@@ -47,7 +47,6 @@ const getRefreshCookieConfig = () => {
 function setAccessTokenCookie(res, token) {
     const config = getCookieConfig();
     res.cookie('accessToken', token, config);
-    logger.debug('Access token cookie set');
 }
 
 /**
@@ -56,7 +55,6 @@ function setAccessTokenCookie(res, token) {
 function setRefreshTokenCookie(res, token) {
     const config = getRefreshCookieConfig();
     res.cookie('refreshToken', token, config);
-    logger.debug('Refresh token cookie set');
 }
 
 /**
