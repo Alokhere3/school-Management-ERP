@@ -92,7 +92,7 @@ app.use(cookieParser(process.env.COOKIE_SECRET || process.env.JWT_SECRET));
 // CORS configuration - use environment variables
 // IMPORTANT: credentials: true is required for cookies to work
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
-    'http://localhost:3000'
+    'http://localhost:3000','https://school-management-erp-1dht.onrender.com/'
 ];
 
 app.use(cors({
