@@ -247,7 +247,12 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
                 const disallowedRoles = [];
 
                 // Fetch role permission requirements for each requested role
-                const rolePermissionChecks = (await Role.findAll({ where: { name: { [Op.in]: roles } } }))
+                const { Op } = require('sequelize');
+                const rolePermissionChecks = (await Role.findAll({ 
+                    where: { 
+                        name: { [Op.in]: roles }
+                    } 
+                }))
                     .map(async (roleRec) => {
                         // Get permissions required by this role
                         const rp = await RolePermission.findAll({ where: { roleId: roleRec.id }, include: [{ model: Permission, as: 'permission' }] });
@@ -288,25 +293,50 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
             }
             
             // Validate that all requested roles exist (regardless of permission level)
-            const Op = require('sequelize').Op;
-            const roleRecords = await Role.findAll({ 
-                where: { 
-                    name: { [Op.in]: roles },
-                    [Op.or]: [
-                        { tenantId: null, isSystemRole: true },
-                        { tenantId: req.user.tenantId }
-                    ]
-                } 
-            });
+            // NOTE: During registration, tenant roles haven't been seeded yet,
+            // so we validate only system roles. Tenant-scoped roles are validated
+            // after the tenant is created and roles are seeded.
+            // Step 1: Normalize roles input
+            const rolesToAssign = Array.isArray(roles) ? roles : [roles];
             
-            const foundRoleNames = roleRecords.map(r => r.name);
-            const notFound = roles.filter(r => !foundRoleNames.includes(r));
-            if (notFound.length > 0) {
+            // Step 2: Separate system roles from tenant-scoped roles
+            const { Op } = require('sequelize');
+            const knownTenantRoles = ['School Admin', 'Teacher', 'Staff', 'Student', 'Parent', 'Accountant', 'Librarian'];
+            const systemRolesToValidate = rolesToAssign.filter(r => !knownTenantRoles.includes(r));
+            
+            // Step 3: Validate system roles exist if any were requested
+            if (systemRolesToValidate.length > 0) {
+                const systemRoleRecords = await Role.findAll({ 
+                    where: { 
+                        name: { [Op.in]: systemRolesToValidate },
+                        tenantId: null,
+                        isSystemRole: true
+                    } 
+                });
+                
+                if (systemRoleRecords.length !== systemRolesToValidate.length) {
+                    const found = systemRoleRecords.map(r => r.name);
+                    const missing = systemRolesToValidate.filter(r => !found.includes(r));
+                    
+                    return res.status(400).json({ 
+                        success: false, 
+                        error: `System roles not found: ${missing.join(', ')}`,
+                        code: 'ROLES_NOT_FOUND',
+                        details: missing
+                    });
+                }
+            }
+            
+            // Step 4: Validate tenant-scoped roles are in the default list
+            const invalidTenantRoles = rolesToAssign.filter(r => 
+                knownTenantRoles.includes(r) === false && systemRolesToValidate.includes(r) === false
+            );
+            if (invalidTenantRoles.length > 0) {
                 return res.status(400).json({ 
                     success: false, 
-                    error: `Role(s) not found: ${notFound.join(', ')}`,
-                    code: 'ROLES_NOT_FOUND',
-                    details: notFound
+                    error: `Unknown roles: ${invalidTenantRoles.join(', ')}`,
+                    code: 'INVALID_ROLES',
+                    details: invalidTenantRoles
                 });
             }
         }
