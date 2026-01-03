@@ -180,7 +180,7 @@ try {
 }
 
 // Database sync & start
-sequelize.sync({ alter: false }).then(() => {
+sequelize.sync({ alter: true }).then(() => {
     const port = process.env.PORT || 3000;
     app.listen(port, () => {
         logger.info(`🚀 School ERP Backend running on port ${port}`);

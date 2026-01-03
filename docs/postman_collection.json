@@ -10,7 +10,64 @@
       "name": "Auth",
       "item": [
         {
-          "name": "Login",
+          "name": "🔐 Login (Super Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{superAdminEmail}}\",\n  \"password\": \"{{superAdminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","auth","login"]
+            },
+            "description": "Login as Super Admin. This request saves the token to environment variables and extracts it from cookies.",
+            "response": [],
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "// Extract token from response body",
+                    "const res = pm.response.json();",
+                    "if (res && res.token) {",
+                    "  pm.environment.set('superAdminToken', res.token);",
+                    "  pm.environment.set('token', res.token);",
+                    "  console.log('✅ Super Admin token saved to environment');",
+                    "}",
+                    "",
+                    "// Extract token from cookies if present",
+                    "const cookies = pm.cookies.jar().toJSON().cookies;",
+                    "const tokenCookie = cookies.find(c => c.name === 'token' || c.name === 'jwt');",
+                    "if (tokenCookie) {",
+                    "  console.log('✅ Token found in cookies:', tokenCookie.name);",
+                    "  pm.environment.set('token', tokenCookie.value);",
+                    "  pm.environment.set('superAdminToken', tokenCookie.value);",
+                    "}",
+                    "",
+                    "// Extract tenant ID if present",
+                    "if (res && res.tenantId) {",
+                    "  pm.environment.set('tenantId', res.tenantId);",
+                    "  console.log('✅ Tenant ID saved:', res.tenantId);",
+                    "}",
+                    "",
+                    "if (res && res.user && res.user.id) {",
+                    "  pm.environment.set('userId', res.user.id);",
+                    "  console.log('✅ User ID saved:', res.user.id);",
+                    "}"
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "🔓 Login (School Admin)",
           "request": {
             "method": "POST",
             "header": [
@@ -25,7 +82,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api","auth","login"]
             },
-            "description": "Login and receive a JWT token. This request will auto-save `token` and `tenantId` into environment variables.",
+            "description": "Login as School Admin. Saves token to adminToken environment variable.",
             "response": [],
             "event": [
               {
@@ -35,12 +92,22 @@
                   "exec": [
                     "const res = pm.response.json();",
                     "if (res && res.token) {",
+                    "  pm.environment.set('adminToken', res.token);",
                     "  pm.environment.set('token', res.token);",
+                    "  console.log('✅ School Admin token saved to environment');",
                     "}",
+                    "",
+                    "const cookies = pm.cookies.jar().toJSON().cookies;",
+                    "const tokenCookie = cookies.find(c => c.name === 'token' || c.name === 'jwt');",
+                    "if (tokenCookie) {",
+                    "  console.log('✅ Token cookie found:', tokenCookie.name);",
+                    "  pm.environment.set('adminToken', tokenCookie.value);",
+                    "  pm.environment.set('token', tokenCookie.value);",
+                    "}",
+                    "",
                     "if (res && res.tenantId) {",
                     "  pm.environment.set('tenantId', res.tenantId);",
-                    "}",
-                    "console.log('Saved token and tenantId (if present) to environment');"
+                    "}"
                   ]
                 }
               }
@@ -48,25 +115,38 @@
           }
         },
         {
-          "name": "Register (create user)",
+          "name": "👤 Register (Create School Admin)",
           "request": {
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" },
-              { "key": "Authorization", "value": "Bearer {{token}}" }
+              { "key": "Authorization", "value": "Bearer {{superAdminToken}}" }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"New User\",\n  \"email\": \"newuser@example.com\",\n  \"password\": \"password\",\n  \"roles\": [\"admin\"]\n}"
+              "raw": "{\n  \"name\": \"My School\",\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\",\n  \"roles\": [\"School Admin\"]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/register",
               "host": ["{{baseUrl}}"],
               "path": ["api","auth","register"]
             },
-            "description": "Create a user. This endpoint requires an Authorization token for the creator (e.g., Super Admin). This test will attempt to save `tenantId` from the response.",
+            "description": "Create a School Admin user. Must be authenticated as Super Admin.",
             "response": [],
             "event": [
+              {
+                "listen": "prerequest",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "// Verify we have a Super Admin token before proceeding",
+                    "const token = pm.environment.get('superAdminToken');",
+                    "if (!token) {",
+                    "  console.warn('⚠️  No Super Admin token found. Please login as Super Admin first (run \"Login (Super Admin)\" request).');",
+                    "}"
+                  ]
+                }
+              },
               {
                 "listen": "test",
                 "script": {
@@ -75,10 +155,13 @@
                     "const res = pm.response.json();",
                     "if (res && res.tenantId) {",
                     "  pm.environment.set('tenantId', res.tenantId);",
-                    "} else if (res && res.data && res.data.tenantId) {",
-                    "  pm.environment.set('tenantId', res.data.tenantId);",
+                    "  console.log('✅ Tenant ID saved:', res.tenantId);",
                     "}",
-                    "console.log('Attempted to save tenantId from register response');"
+                    "if (res && res.data && res.data.id) {",
+                    "  pm.environment.set('userId', res.data.id);",
+                    "  console.log('✅ Created user ID:', res.data.id);",
+                    "}",
+                    "console.log('✅ School Admin created successfully. Now run \"Login (School Admin)\" to get admin token.');"
                   ]
                 }
               }
@@ -89,6 +172,7 @@
     },
     {
       "name": "Tenants",
+      "description": "Tenant management endpoints. Pre-request script extracts token from cookies if available.",
       "item": [
         {
           "name": "Create Tenant",
@@ -110,6 +194,24 @@
             "description": "Create a tenant. Test script saves returned tenant id into environment variable `tenantId`.",
             "response": [],
             "event": [
+              {
+                "listen": "prerequest",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "// Extract token from cookies if environment token is empty",
+                    "const envToken = pm.environment.get('token');",
+                    "if (!envToken || envToken === '') {",
+                    "  const cookies = pm.cookies.jar().toJSON().cookies;",
+                    "  const tokenCookie = cookies.find(c => c.name === 'token' || c.name === 'jwt');",
+                    "  if (tokenCookie) {",
+                    "    pm.environment.set('token', tokenCookie.value);",
+                    "    console.log('✅ Token loaded from cookies');",
+                    "  }",
+                    "}"
+                  ]
+                }
+              },
               {
                 "listen": "test",
                 "script": {

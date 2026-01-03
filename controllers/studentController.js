@@ -147,7 +147,7 @@ const updateStudent = asyncHandler(async (req, res) => {
     Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
 
     const student = await studentService.updateStudent(req.params.id, tenantId, updates);
-    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found' });
     const s = student.toJSON ? student.toJSON() : student;
     let key = s.photoKey;
     if (!key && s.photoUrl) {
@@ -167,7 +167,7 @@ const getStudentById = asyncHandler(async (req, res) => {
     const tenantId = req.user && req.user.tenantId;
     const student = await studentService.getStudentById(req.params.id, tenantId);
     
-    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found' });
     
     // Check row-level security: if limited access, verify ownership
     if (req.permission && req.permission.level === 'limited') {
@@ -197,7 +197,7 @@ const getStudentById = asyncHandler(async (req, res) => {
 const deleteStudent = asyncHandler(async (req, res) => {
     const tenantId = req.user && req.user.tenantId;
     const student = await studentService.deleteStudent(req.params.id, tenantId);
-    if (!student) return res.status(404).json({ error: 'Student not found' });
+    if (!student) return res.status(404).json({ success: false, error: 'Student not found' });
     res.status(204).json();
 });
 

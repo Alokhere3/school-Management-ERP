@@ -18,6 +18,18 @@
 const { Op } = require('sequelize');
 
 /**
+ * Convert enum role value (e.g., 'SUPER_ADMIN') to title case role name (e.g., 'Super Admin')
+ * @param {string} enumValue - The enum value
+ * @returns {string} - The title case role name
+ */
+function enumToRoleName(enumValue) {
+    return enumValue
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+}
+
+/**
  * Create an authorization middleware
  * @param {string} resource - Resource name (e.g., 'students', 'fees', 'attendance')
  * @param {string} action - Action ('create', 'read', 'update', 'delete', 'export')
@@ -50,23 +62,26 @@ function authorize(resource, action, scope = null) {
 
             // Fetch user roles for this tenant
             const userRoles = await UserRole.findAll({
-                where: { userId, tenantId },
-                include: [
-                    {
-                        model: Role,
-                        as: 'role',
-                        required: true
-                    }
-                ]
+                where: { userId, tenantId }
             });
 
             if (!userRoles || userRoles.length === 0) {
                 return res.status(403).json({ message: 'Forbidden: No roles assigned for this tenant' });
             }
 
-            // Fetch all permissions assigned to these roles for this resource+action
-            const roleIds = userRoles.map(ur => ur.roleId);
+            // Get role names from the user roles and find matching Role records
+            const roleNames = userRoles.map(ur => enumToRoleName(ur.role));
+            const roleRecords = await Role.findAll({
+                where: { name: { [Op.in]: roleNames } }
+            });
 
+            const roleIds = roleRecords.map(r => r.id);
+
+            if (roleIds.length === 0) {
+                return res.status(403).json({ message: 'Forbidden: No matching roles found' });
+            }
+
+            // Fetch all permissions assigned to these roles for this resource+action
             const rolePermissions = await RolePermission.findAll({
                 where: { roleId: { [Op.in]: roleIds } },
                 include: [
@@ -102,7 +117,7 @@ function authorize(resource, action, scope = null) {
                 resource,
                 action,
                 level: maxLevel,
-                userRoles: userRoles.map(ur => ur.role.name)
+                userRoles: roleRecords.map(r => r.name)
             };
 
             // Apply row-level scope filter if provided
@@ -134,6 +149,7 @@ async function checkPermission(user, resource, action) {
     }
 
     const UserRole = require('../models/UserRole');
+    const Role = require('../models/Role');
     const RolePermission = require('../models/RolePermission');
     const Permission = require('../models/Permission');
 
@@ -145,7 +161,17 @@ async function checkPermission(user, resource, action) {
         return 'none';
     }
 
-    const roleIds = userRoles.map(ur => ur.roleId);
+    // Get role names from the user roles and find matching Role records
+    const roleNames = userRoles.map(ur => enumToRoleName(ur.role));
+    const roleRecords = await Role.findAll({
+        where: { name: { [Op.in]: roleNames } }
+    });
+
+    const roleIds = roleRecords.map(r => r.id);
+
+    if (roleIds.length === 0) {
+        return 'none';
+    }
 
     const rolePermissions = await RolePermission.findAll({
         where: { roleId: { [Op.in]: roleIds } },

@@ -216,7 +216,7 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
             }
 
             // Check if authenticated user has permission to create roles
-            let userPermissionLevel = await checkPermission(req.user, 'roles', 'create');
+            let userPermissionLevel = await checkPermission(req.user, 'user_management', 'create');
 
             // Backward-compatibility: some tokens/users carry a `role` string
             // (e.g. 'admin') that isn't represented in UserRole. Treat those
@@ -247,7 +247,7 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
                 const disallowedRoles = [];
 
                 // Fetch role permission requirements for each requested role
-                const rolePermissionChecks = (await Role.findAll({ where: { name: roles } }))
+                const rolePermissionChecks = (await Role.findAll({ where: { name: { [Op.in]: roles } } }))
                     .map(async (roleRec) => {
                         // Get permissions required by this role
                         const rp = await RolePermission.findAll({ where: { roleId: roleRec.id }, include: [{ model: Permission, as: 'permission' }] });
@@ -288,10 +288,11 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
             }
             
             // Validate that all requested roles exist (regardless of permission level)
+            const Op = require('sequelize').Op;
             const roleRecords = await Role.findAll({ 
                 where: { 
-                    name: roles,
-                    [require('sequelize').Op.or]: [
+                    name: { [Op.in]: roles },
+                    [Op.or]: [
                         { tenantId: null, isSystemRole: true },
                         { tenantId: req.user.tenantId }
                     ]
