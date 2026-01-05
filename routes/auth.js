@@ -424,14 +424,14 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
             tenantId: tenant.id,
             roles: rolesArray,
             type: 'access'
-        }, process.env.JWT_SECRET, { expiresIn: '15m' });
+        }, process.env.JWT_SECRET, {expiresIn:process.env.JWT_EXPIRES_IN|| '15m' });
         
         // Generate refresh token (long-lived)
         const refreshToken = jwt.sign({
             userId: user.id,
             tenantId: tenant.id,
             type: 'refresh'
-        }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        }, process.env.JWT_SECRET, {expiresIn:process.env.JWT_REFRESH_EXPIRES_IN||'7d' });
         
         // Set secure cookies
         setAccessTokenCookie(res, accessToken);
@@ -631,7 +631,7 @@ router.post('/login', require('../middleware/validation'), async (req, res) => {
                 tenantId: user.tenantId,
                 type: 'password_reset',
                 mustChange: true
-            }, process.env.JWT_SECRET, { expiresIn: '15m' });
+            }, process.env.JWT_SECRET, { expiresIn:process.env.JWT_EXPIRES_IN|| '15m' });
             
             return res.json({
                 success: true,
@@ -658,14 +658,14 @@ router.post('/login', require('../middleware/validation'), async (req, res) => {
             tenantId: user.tenantId,
             roles: roles,
             type: 'access'
-        }, process.env.JWT_SECRET, { expiresIn: '15m' });
+        }, process.env.JWT_SECRET, { expiresIn:process.env.JWT_EXPIRES_IN|| '15m'});
         
         // Generate refresh token (long-lived)
         const refreshToken = jwt.sign({
             userId: user.id,
             tenantId: user.tenantId,
             type: 'refresh'
-        }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        }, process.env.JWT_SECRET, { expiresIn:process.env.JWT_REFRESH_EXPIRES_IN||'7d' });
         
         // Set secure cookies
         setAccessTokenCookie(res, accessToken);
@@ -826,13 +826,13 @@ router.post('/reset-password', require('../middleware/validation'), async (req, 
             tenantId: user.tenantId,
             roles: roles,
             type: 'access'
-        }, process.env.JWT_SECRET, { expiresIn: '15m' });
+        }, process.env.JWT_SECRET, { expiresIn:process.env.JWT_EXPIRES_IN|| '15m' });
         
         const refreshToken = jwt.sign({
             userId: user.id,
             tenantId: user.tenantId,
             type: 'refresh'
-        }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        }, process.env.JWT_SECRET, { expiresIn:process.env.JWT_REFRESH_EXPIRES_IN||'7d' });
         
         // Set secure cookies
         setAccessTokenCookie(res, accessToken);
@@ -1157,7 +1157,7 @@ router.post('/refresh', async (req, res) => {
             tenantId: user.tenantId,
             roles: roles,
             type: 'access'
-        }, process.env.JWT_SECRET, { expiresIn: '15m' });
+        }, process.env.JWT_SECRET, {expiresIn:process.env.JWT_EXPIRES_IN|| '15m' });
         
         // Optionally rotate refresh token (security best practice)
         const rotateRefreshToken = process.env.ROTATE_REFRESH_TOKEN !== 'false';
@@ -1169,7 +1169,7 @@ router.post('/refresh', async (req, res) => {
                 userId: user.id,
                 tenantId: user.tenantId,
                 type: 'refresh'
-            }, process.env.JWT_SECRET, { expiresIn: '7d' });
+            }, process.env.JWT_SECRET, { expiresIn:process.env.JWT_REFRESH_EXPIRES_IN||'7d' });
             setRefreshTokenCookie(res, newRefreshToken);
         }
         
