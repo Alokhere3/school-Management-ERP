@@ -42,6 +42,7 @@ try {
 // Load models to ensure they are registered with Sequelize
 require('./models/Tenant');
 require('./models/Student');
+require('./models/Class');
 // Ensure User model is present and exposes expected static methods to avoid runtime 500s
 const User = require('./models/User');
 if (!User || typeof User.findOne !== 'function' || typeof User.create !== 'function') {
@@ -166,6 +167,7 @@ if (effectiveSwagger) {
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/staff', require('./routes/staff'));
+app.use('/api/classes', require('./routes/classes'));
 app.use('/api/roles', require('./routes/roles'));
 app.use('/api/permissions', require('./routes/permissions'));
 app.use('/api/tenants', require('./routes/tenants'));
@@ -180,7 +182,7 @@ try {
 }
 
 // Database sync & start
-sequelize.sync({ alter: true }).then(() => {
+sequelize.sync({ alter: false }).then(() => {
     const port = process.env.PORT || 3000;
     app.listen(port, () => {
         logger.info(`🚀 School ERP Backend running on port ${port}`);

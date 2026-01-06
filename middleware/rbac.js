@@ -69,6 +69,21 @@ function authorize(resource, action, scope = null) {
                 return res.status(403).json({ message: 'Forbidden: No roles assigned for this tenant' });
             }
 
+            // Shortcut: allow tenant admin roles to fully manage certain tenant-scoped resources
+            // Use token roles if available to detect ROLE enums like 'SCHOOL_ADMIN'. Also explicitly block SUPER_ADMIN.
+            const tokenRoles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+            const tokenRolesUpper = tokenRoles.map(r => typeof r === 'string' ? r.toUpperCase().replace(/\s+/g, '_') : r);
+            if (resource === 'classes') {
+                if (tokenRolesUpper.includes('SUPER_ADMIN')) {
+                    return res.status(403).json({ message: 'Forbidden: Super admin cannot access tenant classes' });
+                }
+                if (tokenRolesUpper.some(r => typeof r === 'string' && r.endsWith('_ADMIN'))) {
+                    // Grant full access for tenant admin roles without consulting RolePermission table
+                    req.permission = { resource, action, level: 'full', userRoles: tokenRoles };
+                    return next();
+                }
+            }
+
             // Get role names from the user roles and find matching Role records
             const roleNames = userRoles.map(ur => enumToRoleName(ur.role));
             const roleRecords = await Role.findAll({

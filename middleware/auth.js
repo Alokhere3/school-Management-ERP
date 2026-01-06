@@ -57,23 +57,63 @@ const authenticateToken = (req, res, next) => {
 const requireRole = (allowedRoles) => {
     return (req, res, next) => {
         const userRoles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
-        
+
         // Convert allowedRoles to uppercase for comparison with ENUM values
         const allowedRolesUpper = allowedRoles.map(r => r.toUpperCase().replace(/\s+/g, '_'));
         const userRolesUpper = userRoles.map(r => typeof r === 'string' ? r.toUpperCase().replace(/\s+/g, '_') : r);
-        
+
         const hasRole = allowedRolesUpper.some(role => userRolesUpper.includes(role));
-        
+
         if (!hasRole) {
-            return sendError(res, { 
-                status: 403, 
-                body: { 
-                    success: false, 
-                    error: 'Insufficient permissions', 
+            return sendError(res, {
+                status: 403,
+                body: {
+                    success: false,
+                    error: 'Insufficient permissions',
                     code: 'INSUFFICIENT_PERMISSIONS',
                     required: allowedRoles,
                     actual: userRoles
-                } 
+                }
+            });
+        }
+        next();
+    };
+};
+
+// Allow tenant-level admins (e.g., SCHOOL_ADMIN) but explicitly block SUPER_ADMIN
+const requireTenantAdmin = () => {
+    return (req, res, next) => {
+        const userRoles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+        const userRolesUpper = userRoles.map(r => typeof r === 'string' ? r.toUpperCase().replace(/\s+/g, '_') : r);
+
+        if (userRolesUpper.includes('SUPER_ADMIN')) {
+            return sendError(res, {
+                status: 403,
+                body: { success: false, error: 'Super admin cannot perform this action', code: 'INSUFFICIENT_PERMISSIONS', required: ['Tenant Admin'], actual: userRoles }
+            });
+        }
+
+        // Consider any role that ends with '_ADMIN' (e.g., SCHOOL_ADMIN) as tenant admin
+        const isTenantAdmin = userRolesUpper.some(r => typeof r === 'string' && r.endsWith('_ADMIN'));
+        if (!isTenantAdmin) {
+            return sendError(res, {
+                status: 403,
+                body: { success: false, error: 'Insufficient permissions', code: 'INSUFFICIENT_PERMISSIONS', required: ['Tenant Admin'], actual: userRoles }
+            });
+        }
+        next();
+    };
+};
+
+// Block SUPER_ADMIN from accessing tenant-only endpoints
+const blockSuperAdmin = () => {
+    return (req, res, next) => {
+        const userRoles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+        const userRolesUpper = userRoles.map(r => typeof r === 'string' ? r.toUpperCase().replace(/\s+/g, '_') : r);
+        if (userRolesUpper.includes('SUPER_ADMIN')) {
+            return sendError(res, {
+                status: 403,
+                body: { success: false, error: 'Access denied for Super Admin', code: 'ACCESS_DENIED', actual: userRoles }
             });
         }
         next();
@@ -99,5 +139,5 @@ const enforceTenantScope = (req, res, next) => {
     next();
 };
 
-module.exports = { authenticateToken, requireRole, enforceTenantScope };
+module.exports = { authenticateToken, requireRole, requireTenantAdmin, blockSuperAdmin, enforceTenantScope };
 

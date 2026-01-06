@@ -18,6 +18,7 @@ const Attendance = require('./Attendance');
 const Exam = require('./Exam');
 const ExamMarks = require('./ExamMarks');
 const StudentFee = require('./StudentFee');
+const Class = require('./Class');
 
 // ===== User & Role Associations =====
 User.hasMany(UserRole, { foreignKey: 'userId', as: 'userRoles' });
@@ -45,6 +46,9 @@ Staff.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
 Tenant.hasMany(Role, { foreignKey: 'tenantId', as: 'roles' });
 Role.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+Tenant.hasMany(Class, { foreignKey: 'tenantId', as: 'classes' });
+Class.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
 // ===== Student Associations =====
 User.hasMany(Student, { foreignKey: 'userId', as: 'studentRecords' });
@@ -99,4 +103,6 @@ module.exports = {
     Exam,
     ExamMarks,
     StudentFee
+    ,
+    Class
 };
