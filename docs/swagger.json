@@ -81,6 +81,11 @@
             "type": "string",
             "format": "date"
           },
+          "classId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Class ID"
+          },
           "photoUrl": {
             "type": "string"
           },
@@ -2424,6 +2429,15 @@
               "maximum": 100
             },
             "description": "Number of items per page"
+          },
+          {
+            "in": "query",
+            "name": "classId",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Filter students by class ID (optional)"
           }
         ],
         "responses": {
@@ -2507,7 +2521,8 @@
                 "required": [
                   "admissionNo",
                   "firstName",
-                  "dateOfBirth"
+                  "dateOfBirth",
+                  "classId"
                 ],
                 "properties": {
                   "admissionNo": {
@@ -2526,6 +2541,11 @@
                     "type": "string",
                     "format": "date",
                     "description": "Date of birth (YYYY-MM-DD)"
+                  },
+                  "classId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Class ID (required)"
                   },
                   "photo": {
                     "type": "string",
@@ -2874,6 +2894,11 @@
                   "dateOfBirth": {
                     "type": "string",
                     "format": "date"
+                  },
+                  "classId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Class ID"
                   },
                   "photo": {
                     "type": "string",

@@ -2,6 +2,7 @@ const express = require('express');
 const { GetObjectCommand } = require('@aws-sdk/client-s3');
 const { s3Client } = require('../config/s3');
 const logger = require('../config/logger');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -41,7 +42,7 @@ const router = express.Router();
  *
  * Example: GET /images/tenants/123/students/photo.jpg
  */
-router.get(/(.+)/, async (req, res) => {
+router.get(/(.+)/, authenticateToken, async (req, res) => {
     // Get the full path (everything after /images/)
     let key = req.params[0];
 
@@ -54,9 +55,22 @@ router.get(/(.+)/, async (req, res) => {
         return res.status(400).json({ message: 'Invalid image key' });
     }
 
+    // Enforce authentication and tenant isolation before any S3 operation
+    const user = req.user || req.userContext;
+    if (!user || !user.tenantId) {
+        return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    const expectedPrefix = `tenants/${user.tenantId}/`;
+    if (!key.startsWith(expectedPrefix)) {
+        logger.warn(`[images] Tenant isolation failure: requested key ${key} does not belong to tenant ${user.tenantId}`);
+        return res.status(403).json({ message: 'Forbidden' });
+    }
+
     try {
         logger.debug('Image proxy request for key:', key);
         
+        if (!s3Client) return res.status(503).json({ message: 'S3 not configured' });
         const command = new GetObjectCommand({
             Bucket: process.env.S3_BUCKET || process.env.AWS_BUCKET,
             Key: key,

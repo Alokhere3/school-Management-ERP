@@ -22,7 +22,6 @@ const Student = sequelize.define('Student', {
     firstName: DataTypes.STRING(100),
     lastName: DataTypes.STRING(100),
     dateOfBirth: DataTypes.DATEONLY,
-    photoUrl: DataTypes.STRING(500),
     // store the S3 object key (tenants/<id>/students/...), not the public URL
     photoKey: DataTypes.STRING(500),
     // link to a User account when the student has a corresponding user (nullable)
@@ -30,6 +29,24 @@ const Student = sequelize.define('Student', {
         type: DataTypes.UUID,
         allowNull: true,
         references: { model: 'users', key: 'id' }
+    },
+    // link to a Class (nullable)
+    classId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: { model: 'classes', key: 'id' }
+    },
+    // Auto-generated role/sequence number for students in the same class (starts from 1)
+    rollNumber: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: null
+    },
+    // Denormalized class data for quick access without joins
+    classData: {
+        type: DataTypes.JSON,
+        allowNull: true,
+        defaultValue: null
     },
     // ========== APPLICATION & ACADEMIC INFO ==========
     session: DataTypes.STRING(50),

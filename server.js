@@ -3,12 +3,27 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
-const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const { sequelize } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const studentRoutes = require('./routes/students');
 const logger = require('./config/logger');
+
+// Global error handlers
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+    logger.error('UNCAUGHT EXCEPTION:', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION at:', promise, 'reason:', reason);
+    logger.error('UNHANDLED REJECTION:', reason);
+});
+
+const { initializeUserContext } = require('./middleware/rls');
+const { createEnhancedRLSMiddleware } = require('./middleware/enhancedRls');
+const { authLimiter, applyTieredLimiter } = require('./config/rateLimiters');
 
 const app = express();
 
@@ -43,6 +58,7 @@ try {
 require('./models/Tenant');
 require('./models/Student');
 require('./models/Class');
+require('./models/Teacher');
 // Ensure User model is present and exposes expected static methods to avoid runtime 500s
 const User = require('./models/User');
 if (!User || typeof User.findOne !== 'function' || typeof User.create !== 'function') {
@@ -115,27 +131,12 @@ app.use(cors({
     exposedHeaders: ['X-CSRF-Token'] // Expose CSRF token header
 }));
 
-// Rate limiting - Different limits for different routes
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 50, // Only 5 attempts per window for auth
-    message: 'Too many login attempts, please try again later',
-    standardHeaders: true,
-    legacyHeaders: false
-});
-
-const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    keyGenerator: (req) => req.user?.id || req.ip, // Per-user rate limiting
-    standardHeaders: true,
-    legacyHeaders: false
-});
-
-// Apply rate limiting
+// Rate limiting - Using new tiered approach
+// CRITICAL: Uses new tiered rate limiters from config/rateLimiters.js
+// Tiers: 50/15min (unauthenticated) → 300/15min (user) → 600/15min (admin) → 2000/15min (internal API)
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
-app.use('/api/', apiLimiter);
+app.use('/api/', applyTieredLimiter); // Automatically selects correct tier
 
 // Compression
 app.use(compression({
@@ -150,8 +151,9 @@ app.use(compression({
 
 // Parsers
 app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Health check
+// Health check (no auth required)
 app.get('/health', (req, res) => {
     res.json({ status: 'OK', uptime: process.uptime() });
 });
@@ -164,9 +166,31 @@ if (effectiveSwagger) {
     // placeholder route when no swagger doc is present
     app.get('/api-docs', (req, res) => res.send('No API docs available'));
 }
+
+// Public routes (NO authentication required)
 app.use('/api/auth', authRoutes);
+
+// CRITICAL: Authentication & RLS Middleware
+// Applied AFTER auth routes so login/register work without tokens
+const { authenticateToken } = require('./middleware/auth');
+
+// Apply authentication to all protected routes
+app.use(authenticateToken);
+
+// CRITICAL: Enhanced RLS Middleware
+// NEW (Phase 2): Resolves roles from database instead of JWT
+// This ensures req.userContext contains fresh roles from database
+// and role changes take effect immediately (no re-login required)
+const enhancedRls = createEnhancedRLSMiddleware(sequelize);
+app.use(enhancedRls);
+
+// Fallback to old RLS for compatibility (if enhancedRls middleware is unavailable)
+// app.use(initializeUserContext);
+
+// Protected routes (require authentication)
 app.use('/api/students', studentRoutes);
 app.use('/api/staff', require('./routes/staff'));
+app.use('/api/teachers', require('./routes/teachers'));
 app.use('/api/classes', require('./routes/classes'));
 app.use('/api/roles', require('./routes/roles'));
 app.use('/api/permissions', require('./routes/permissions'));
@@ -182,13 +206,29 @@ try {
 }
 
 // Database sync & start
-sequelize.sync({ alter: false }).then(() => {
+const startServer = () => {
     const port = process.env.PORT || 3000;
     app.listen(port, () => {
         logger.info(`🚀 School ERP Backend running on port ${port}`);
     });
-}).catch(err => {
-    logger.error('❌ Database sync failed:', err.message || err);
-    process.exit(1);
-});
+};
+
+if (process.env.ALLOW_DB_ALTER === 'true') {
+    // Only perform automatic schema alterations when explicitly enabled
+    sequelize.sync({ alter: true }).then(startServer).catch(err => {
+        logger.error('❌ Database sync failed:', err);
+        console.error('Database sync failed full error:', err);
+        process.exit(1);
+    });
+} else {
+    // Safer default: just authenticate and start without altering schema
+    sequelize.authenticate().then(() => {
+        logger.info('✅ MySQL Connected (authenticate)');
+        startServer();
+    }).catch(err => {
+        logger.error('❌ Database connection failed:', err);
+        console.error('DB connection error:', err);
+        process.exit(1);
+    });
+}
 

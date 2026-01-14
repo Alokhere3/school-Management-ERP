@@ -418,12 +418,14 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
         });
         const rolesArray = userRoles.map(ur => ur.role);
         
-        // Generate access token (short-lived)
+        // Generate access token (short-lived, NO ROLES)
+        // CRITICAL: Roles removed from JWT to prevent stale token issues
+        // Roles will be resolved per-request from database via enhancedRls middleware
         const accessToken = jwt.sign({
             userId: user.id,
             tenantId: tenant.id,
-            roles: rolesArray,
             type: 'access'
+            // REMOVED: roles: rolesArray (now resolved from DB per-request)
         }, process.env.JWT_SECRET, {expiresIn:process.env.JWT_EXPIRES_IN|| '15m' });
         
         // Generate refresh token (long-lived)
@@ -652,12 +654,14 @@ router.post('/login', require('../middleware/validation'), async (req, res) => {
         const primaryRole = await getUserPrimaryRole(user.id, user.tenantId);
         const allowedAccess = await getAllowedAccess(user.id, user.tenantId);
         
-        // Generate access token (short-lived) with roles array
+        // Generate access token (short-lived, NO ROLES)
+        // CRITICAL: Roles removed from JWT to prevent stale token issues
+        // Roles will be resolved per-request from database via enhancedRls middleware
         const accessToken = jwt.sign({
             userId: user.id,
             tenantId: user.tenantId,
-            roles: roles,
             type: 'access'
+            // REMOVED: roles: roles (now resolved from DB per-request)
         }, process.env.JWT_SECRET, { expiresIn:process.env.JWT_EXPIRES_IN|| '15m'});
         
         // Generate refresh token (long-lived)

@@ -1,31 +1,36 @@
 const asyncHandler = require('../utils/asyncHandler');
-const staffService = require('../services/staffService');
-const { extractKeyFromUrl, buildProxyUrl } = require('../utils/s3Helper');
+const { RepositoryFactory } = require('../repositories');
+const { extractKeyFromUrl, buildProxyUrl, validateExtensionForCategory } = require('../utils/s3Helper');
 const { sendError } = require('../utils/errorMapper');
+const { s3Client, bucket: S3_BUCKET, uploadBufferToS3 } = require('../config/s3');
 
 /**
  * Helper: Apply row-level security filtering based on permission level
  * level === 'limited' means user should only see own records
  */
-function applyRowLevelSecurity(query, req) {
-    if (req.permission && req.permission.level === 'limited') {
-        // HR staff see only their own records or their department
-        if (req.user.role === 'HR Manager' || req.user.role === 'hr_manager') {
-            // Can see all staff in their tenant (HR Manager has broader access)
-            // But if limited, might restrict to department
-            // For now, allow all in tenant for HR Manager
-        } else {
-            // Other roles see only their own record
-            query.userId = req.user.id;
+function applyRowLevelSecurity(query, userContext) {
+    // If permission level is limited (set by RBAC middleware), restrict to own record
+    const permissionLevel = (userContext && userContext.permission && userContext.permission.level) || null;
+    const role = (userContext && userContext.role) || '';
+    const userId = userContext && userContext.userId;
+
+    if (permissionLevel === 'limited') {
+        if (!/hr/i.test(role)) {
+            // Non-HR limited users only see their own record
+            query.userId = userId;
         }
     }
     return query;
 }
 
+// Repository factory instance
+const repos = new RepositoryFactory();
+
 // GET /api/staff
 const listStaff = asyncHandler(async (req, res) => {
     const { page = 1, limit = 20, department, role, designation } = req.query;
-    const tenantId = req.user && req.user.tenantId;
+    const userContext = req.userContext || req.user;
+    const tenantId = userContext && userContext.tenantId;
     if (!tenantId) {
         return sendError(res, { 
             status: 400, 
@@ -36,14 +41,15 @@ const listStaff = asyncHandler(async (req, res) => {
     try {
         // Apply row-level security
         const query = { tenantId };
-        applyRowLevelSecurity(query, req);
+        applyRowLevelSecurity(query, userContext);
         
         // Add filters
         if (department) query.department = department;
         if (role) query.role = role;
         if (designation) query.designation = designation;
         
-        const { count, rows } = await staffService.listStaff(tenantId, { page, limit, query });
+        const options = { page: Number(page), limit: Number(limit) };
+        const { count, rows } = await repos.staff.findVisibleStaff(userContext, query, options);
         
         // Convert S3 URLs to proxy URLs
         const dataWithProxyUrls = rows.map((staff) => {
@@ -91,7 +97,8 @@ const listStaff = asyncHandler(async (req, res) => {
 
 // POST /api/staff
 const createStaff = asyncHandler(async (req, res) => {
-    const tenantId = req.user && req.user.tenantId;
+    const userContext = req.userContext || req.user;
+    const tenantId = userContext && userContext.tenantId;
     if (!tenantId) {
         return sendError(res, { 
             status: 400, 
@@ -152,34 +159,72 @@ const createStaff = asyncHandler(async (req, res) => {
         twitterUrl: req.body.twitterUrl,
         linkedinUrl: req.body.linkedinUrl,
         instagramUrl: req.body.instagramUrl,
-        // Photo
-        photoUrl: req.files?.photo ? req.files.photo[0]?.location : null,
-        photoKey: req.files?.photo ? (req.files.photo[0]?.key || null) : null,
-        // Documents
-        resumeUrl: req.files?.resume ? req.files.resume[0]?.location : null,
-        resumeKey: req.files?.resume ? (req.files.resume[0]?.key || null) : null,
-        joiningLetterUrl: req.files?.joiningLetter ? req.files.joiningLetter[0]?.location : null,
-        joiningLetterKey: req.files?.joiningLetter ? (req.files.joiningLetter[0]?.key || null) : null,
+        // Photo/Docs will be uploaded after record creation (so we have entityId)
+        photoKey: null,
+        resumeKey: null,
+        joiningLetterKey: null,
         status: 'active'
     };
     
     // Remove undefined fields
     Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
     
-    const staff = await staffService.createStaff(payload);
+    // Create staff first (no files yet)
+    const staff = await repos.staff.createStaff(payload, userContext);
     const s = staff.toJSON ? staff.toJSON() : staff;
-    
-    // Convert S3 URLs to proxy URLs
-    if (s.photoKey) {
-        s.photoUrl = buildProxyUrl(s.photoKey);
+
+    // If multipart files were provided (memory), upload them to S3 using the staff id
+    if (req.files && Object.keys(req.files).length > 0) {
+        const uploads = {};
+        // photo
+        if (req.files.photo && req.files.photo[0] && req.files.photo[0].buffer) {
+            const file = req.files.photo[0];
+            if (!validateExtensionForCategory(file.originalname, 'profile')) {
+                return sendError(res, { status: 400, body: { success: false, error: 'Invalid photo type', code: 'VALIDATION_ERROR' } });
+            }
+            const key = require('../utils/s3Helper').generateS3Key(userContext.tenantId, 'staff', s.id, 'photo', file.originalname);
+            await uploadBufferToS3(s3Client, S3_BUCKET, key, file.buffer, file.mimetype);
+            uploads.photoKey = key;
+        }
+        // resume
+        if (req.files.resume && req.files.resume[0] && req.files.resume[0].buffer) {
+            const file = req.files.resume[0];
+            if (!validateExtensionForCategory(file.originalname, 'resume')) {
+                return sendError(res, { status: 400, body: { success: false, error: 'Invalid resume type', code: 'VALIDATION_ERROR' } });
+            }
+            const key = require('../utils/s3Helper').generateS3Key(userContext.tenantId, 'staff', s.id, 'resume', file.originalname);
+            await uploadBufferToS3(s3Client, S3_BUCKET, key, file.buffer, file.mimetype);
+            uploads.resumeKey = key;
+        }
+        // joiningLetter
+        if (req.files.joiningLetter && req.files.joiningLetter[0] && req.files.joiningLetter[0].buffer) {
+            const file = req.files.joiningLetter[0];
+            if (!validateExtensionForCategory(file.originalname, 'joining_letter')) {
+                return sendError(res, { status: 400, body: { success: false, error: 'Invalid joining letter type', code: 'VALIDATION_ERROR' } });
+            }
+            const key = require('../utils/s3Helper').generateS3Key(userContext.tenantId, 'staff', s.id, 'joining_letter', file.originalname);
+            await uploadBufferToS3(s3Client, S3_BUCKET, key, file.buffer, file.mimetype);
+            uploads.joiningLetterKey = key;
+        }
+
+        if (Object.keys(uploads).length > 0) {
+            await repos.staff.updateStaff(s.id, uploads, userContext);
+            // refresh staff
+            const refreshed = await repos.staff.findStaffById(s.id, userContext);
+            const sr = refreshed.toJSON ? refreshed.toJSON() : refreshed;
+            if (sr.photoKey) sr.photoUrl = buildProxyUrl(sr.photoKey);
+            if (sr.resumeKey) sr.resumeUrl = buildProxyUrl(sr.resumeKey);
+            if (sr.joiningLetterKey) sr.joiningLetterUrl = buildProxyUrl(sr.joiningLetterKey);
+            return res.status(201).json({ success: true, data: sr });
+        }
+
     }
-    if (s.resumeKey) {
-        s.resumeUrl = buildProxyUrl(s.resumeKey);
-    }
-    if (s.joiningLetterKey) {
-        s.joiningLetterUrl = buildProxyUrl(s.joiningLetterKey);
-    }
-    
+
+    // No multipart files uploaded - return created staff
+    if (s.photoKey) s.photoUrl = buildProxyUrl(s.photoKey);
+    if (s.resumeKey) s.resumeUrl = buildProxyUrl(s.resumeKey);
+    if (s.joiningLetterKey) s.joiningLetterUrl = buildProxyUrl(s.joiningLetterKey);
+
     res.status(201).json({ success: true, data: s });
 });
 
@@ -241,24 +286,70 @@ const updateStaff = asyncHandler(async (req, res) => {
         instagramUrl: req.body.instagramUrl
     };
     
-    // Handle file uploads - support both single and multiple file uploads
-    if (req.files?.photo && req.files.photo[0]) {
-        updates.photoUrl = req.files.photo[0].location;
-        updates.photoKey = req.files.photo[0].key;
-    }
-    if (req.files?.resume && req.files.resume[0]) {
-        updates.resumeUrl = req.files.resume[0].location;
-        updates.resumeKey = req.files.resume[0].key;
-    }
-    if (req.files?.joiningLetter && req.files.joiningLetter[0]) {
-        updates.joiningLetterUrl = req.files.joiningLetter[0].location;
-        updates.joiningLetterKey = req.files.joiningLetter[0].key;
+    // Handle multipart file uploads (memory buffers) - upload to S3 and update keys
+    if (req.files && Object.keys(req.files).length > 0) {
+        const uploads = {};
+        const staffId = req.params.id;
+        const existing = await repos.staff.findStaffById(staffId, userContext);
+
+        // photo
+        if (req.files.photo && req.files.photo[0] && req.files.photo[0].buffer) {
+            const file = req.files.photo[0];
+            if (!validateExtensionForCategory(file.originalname, 'profile')) {
+                return sendError(res, { status: 400, body: { success: false, error: 'Invalid photo type', code: 'VALIDATION_ERROR' } });
+            }
+            const key = require('../utils/s3Helper').generateS3Key(userContext.tenantId, 'staff', staffId, 'photo', file.originalname);
+            await uploadBufferToS3(s3Client, S3_BUCKET, key, file.buffer, file.mimetype);
+            // delete old
+            try {
+                if (existing && existing.photoKey && existing.photoKey !== key && existing.photoKey.includes(`tenants/${userContext.tenantId}`)) {
+                    await require('../utils/s3Helper').deleteS3Object(s3Client, S3_BUCKET, existing.photoKey, userContext.tenantId, { userId: userContext.userId, entityId: staffId, entityType: 'staff', category: 'photo', action: 'DELETE_OLD_ON_UPDATE' });
+                }
+            } catch (e) {
+                // log and continue
+            }
+            uploads.photoKey = key;
+        }
+
+        // resume
+        if (req.files.resume && req.files.resume[0] && req.files.resume[0].buffer) {
+            const file = req.files.resume[0];
+            if (!validateExtensionForCategory(file.originalname, 'resume')) {
+                return sendError(res, { status: 400, body: { success: false, error: 'Invalid resume type', code: 'VALIDATION_ERROR' } });
+            }
+            const key = require('../utils/s3Helper').generateS3Key(userContext.tenantId, 'staff', staffId, 'resume', file.originalname);
+            await uploadBufferToS3(s3Client, S3_BUCKET, key, file.buffer, file.mimetype);
+            try {
+                if (existing && existing.resumeKey && existing.resumeKey !== key && existing.resumeKey.includes(`tenants/${userContext.tenantId}`)) {
+                    await require('../utils/s3Helper').deleteS3Object(s3Client, S3_BUCKET, existing.resumeKey, userContext.tenantId, { userId: userContext.userId, entityId: staffId, entityType: 'staff', category: 'resume', action: 'DELETE_OLD_ON_UPDATE' });
+                }
+            } catch (e) {}
+            uploads.resumeKey = key;
+        }
+
+        // joiningLetter
+        if (req.files.joiningLetter && req.files.joiningLetter[0] && req.files.joiningLetter[0].buffer) {
+            const file = req.files.joiningLetter[0];
+            if (!validateExtensionForCategory(file.originalname, 'joining_letter')) {
+                return sendError(res, { status: 400, body: { success: false, error: 'Invalid joining letter type', code: 'VALIDATION_ERROR' } });
+            }
+            const key = require('../utils/s3Helper').generateS3Key(userContext.tenantId, 'staff', staffId, 'joining_letter', file.originalname);
+            await uploadBufferToS3(s3Client, S3_BUCKET, key, file.buffer, file.mimetype);
+            try {
+                if (existing && existing.joiningLetterKey && existing.joiningLetterKey !== key && existing.joiningLetterKey.includes(`tenants/${userContext.tenantId}`)) {
+                    await require('../utils/s3Helper').deleteS3Object(s3Client, S3_BUCKET, existing.joiningLetterKey, userContext.tenantId, { userId: userContext.userId, entityId: staffId, entityType: 'staff', category: 'joining_letter', action: 'DELETE_OLD_ON_UPDATE' });
+                }
+            } catch (e) {}
+            uploads.joiningLetterKey = key;
+        }
+
+        Object.assign(updates, uploads);
     }
     
     // Remove undefined fields
     Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
     
-    const staff = await staffService.updateStaff(req.params.id, tenantId, updates);
+    const staff = await repos.staff.updateStaff(req.params.id, updates, userContext);
     if (!staff) {
         return res.status(404).json({ success: false, error: 'Staff not found' });
     }
@@ -289,7 +380,7 @@ const getStaffById = asyncHandler(async (req, res) => {
         });
     }
     
-    const staff = await staffService.getStaffById(req.params.id, tenantId);
+    const staff = await repos.staff.findStaffById(req.params.id, userContext);
     if (!staff) {
         return res.status(404).json({ success: false, error: 'Staff not found' });
     }
@@ -330,7 +421,7 @@ const deleteStaff = asyncHandler(async (req, res) => {
         });
     }
     
-    const staff = await staffService.deleteStaff(req.params.id, tenantId);
+    const staff = await repos.staff.deleteStaff(req.params.id, userContext);
     if (!staff) {
         return res.status(404).json({ success: false, error: 'Staff not found' });
     }
