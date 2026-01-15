@@ -51,7 +51,11 @@ exports.deleteTenant = asyncHandler(async (req, res) => {
     if (!userContext || !isSuperAdmin(userContext)) {
         return res.status(403).json({ success: false, error: 'Access denied' });
     }
-    const deleted = await tenantService.deleteTenant(req.params.id);
-    if (!deleted) return res.status(404).json({ success: false, error: 'Tenant not found' });
-    res.status(204).end();
+    const deletionResult = await tenantService.deleteTenant(req.params.id);
+    if (!deletionResult) return res.status(404).json({ success: false, error: 'Tenant not found' });
+    res.status(200).json({ 
+        success: true, 
+        message: `Tenant and all related data deleted successfully`,
+        data: deletionResult 
+    });
 });

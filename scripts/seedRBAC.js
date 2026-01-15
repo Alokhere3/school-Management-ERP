@@ -398,9 +398,29 @@ async function seed() {
         // Ensure all roles exist
         console.log('👥 Creating roles...');
         const createdRoles = {};
+        
+        // For non-system roles, we need a default tenant. Use 'master' or create one.
+        let defaultTenantId = null;
+        if (ROLES.some(r => !r.isSystemRole)) {
+            // Try to get the first/default tenant, or use null for master access tenant
+            const Tenant = require('../models/Tenant');
+            let defaultTenant = await Tenant.findOne({ order: [['createdAt', 'ASC']] });
+            if (!defaultTenant) {
+                // Create a master/default tenant if none exists
+                defaultTenant = await Tenant.create({
+                    name: 'Master School',
+                    slug: 'master-school',
+                    subdomain: 'master'
+                });
+                console.log('Created default tenant for seeding non-system roles');
+            }
+            defaultTenantId = defaultTenant.id;
+        }
+        
         for (const roleDef of ROLES) {
+            const tenantId = roleDef.isSystemRole ? null : defaultTenantId;
             const [role] = await Role.findOrCreate({
-                where: { name: roleDef.name, tenantId: null }, // System roles have tenantId = null
+                where: { name: roleDef.name, tenantId: tenantId },
                 defaults: {
                     description: roleDef.description,
                     isSystemRole: roleDef.isSystemRole

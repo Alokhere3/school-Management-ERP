@@ -70,16 +70,17 @@ function authorize(resource, action, scope = null) {
             }
 
             // Shortcut: allow tenant admin roles to fully manage certain tenant-scoped resources
-            // Use token roles if available to detect ROLE enums like 'SCHOOL_ADMIN'. Also explicitly block SUPER_ADMIN.
-            const tokenRoles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
-            const tokenRolesUpper = tokenRoles.map(r => typeof r === 'string' ? r.toUpperCase().replace(/\s+/g, '_') : r);
+            // CRITICAL: Use req.userContext.roles (from enhancedRls middleware) not req.user.roles
+            const contextRoles = req.userContext?.roles || [];
+            const contextRolesUpper = contextRoles.map(r => typeof r === 'string' ? r.toUpperCase().replace(/\s+/g, '_') : r);
+            
             if (resource === 'classes') {
-                if (tokenRolesUpper.includes('SUPER_ADMIN')) {
+                if (contextRolesUpper.includes('SUPER_ADMIN')) {
                     return res.status(403).json({ message: 'Forbidden: Super admin cannot access tenant classes' });
                 }
-                if (tokenRolesUpper.some(r => typeof r === 'string' && r.endsWith('_ADMIN'))) {
+                if (contextRolesUpper.some(r => typeof r === 'string' && r.endsWith('_ADMIN'))) {
                     // Grant full access for tenant admin roles without consulting RolePermission table
-                    req.permission = { resource, action, level: 'full', userRoles: tokenRoles };
+                    req.permission = { resource, action, level: 'full', userRoles: contextRoles };
                     return next();
                 }
             }
@@ -214,7 +215,63 @@ async function checkPermission(user, resource, action) {
     return maxLevel;
 }
 
+/**
+ * Middleware: Restrict access to SUPER_ADMIN role only
+ * Used for system-level endpoints that should only be accessible to Super Admin users
+ * 
+ * CRITICAL: Checks req.userContext.roles which are resolved from database by enhancedRls middleware
+ * This is the source of truth for user roles, not JWT tokens
+ * 
+ * @returns {Function} Express middleware
+ */
+function requireSuperAdmin(req, res, next) {
+    try {
+        const logger = require('../config/logger');
+        
+        // Ensure user is authenticated
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ success: false, error: 'Unauthorized: No user in request', code: 'NOT_AUTHENTICATED' });
+        }
+
+        // Check if user context has been initialized by enhancedRls middleware
+        if (!req.userContext) {
+            logger.warn(`User context not initialized for user ${req.user.id}`);
+            return res.status(500).json({ 
+                success: false, 
+                error: 'Internal server error: User context not initialized',
+                code: 'USER_CONTEXT_ERROR'
+            });
+        }
+
+        // Get roles from userContext (these are resolved from database by enhancedRls middleware)
+        const userRoles = req.userContext.roles || [];
+        
+        logger.debug(`Checking SUPER_ADMIN access for user ${req.user.id}. User roles: ${JSON.stringify(userRoles)}`);
+
+        // Check if user has SUPER_ADMIN role
+        const hasSuperAdminRole = userRoles.includes('SUPER_ADMIN');
+        
+        if (!hasSuperAdminRole) {
+            logger.warn(`Super Admin access denied for user ${req.user.id}. Roles: ${JSON.stringify(userRoles)}`);
+            return res.status(403).json({ 
+                success: false, 
+                error: 'Forbidden: Only Super Admin can access this resource',
+                code: 'SUPER_ADMIN_REQUIRED'
+            });
+        }
+        
+        logger.debug(`Super Admin access granted for user ${req.user.id}`);
+        next();
+
+    } catch (error) {
+        const logger = require('../config/logger');
+        logger.error('Super Admin authorization middleware error:', error);
+        res.status(500).json({ success: false, error: 'Internal authorization error', code: 'AUTH_ERROR' });
+    }
+}
+
 module.exports = {
     authorize,
-    checkPermission
+    checkPermission,
+    requireSuperAdmin
 };

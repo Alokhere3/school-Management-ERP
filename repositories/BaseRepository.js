@@ -67,8 +67,9 @@ class BaseRepository {
      */
     buildTenantFilter(userContext) {
         return {
-            tenantId: userContext.tenantId,
-            deletedAt: { [Op.is]: null } // Soft-delete enforcement: NEVER return deleted records
+            tenantId: userContext.tenantId
+            // NOTE: Soft-delete filter (deletedAt) removed - models don't use paranoid mode
+            // Each model must explicitly implement soft deletes if needed
         };
     }
 

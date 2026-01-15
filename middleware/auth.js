@@ -56,7 +56,9 @@ const authenticateToken = (req, res, next) => {
 
 const requireRole = (allowedRoles) => {
     return (req, res, next) => {
-        const userRoles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+        // CRITICAL: Check req.userContext.roles (from enhancedRls middleware)
+        // This is the source of truth for user roles resolved from database
+        const userRoles = req.userContext?.roles || req.user?.roles || (req.user?.role ? [req.user.role] : []);
 
         // Convert allowedRoles to uppercase for comparison with ENUM values
         const allowedRolesUpper = allowedRoles.map(r => r.toUpperCase().replace(/\s+/g, '_'));
@@ -83,13 +85,15 @@ const requireRole = (allowedRoles) => {
 // Allow tenant-level admins (e.g., SCHOOL_ADMIN) but explicitly block SUPER_ADMIN
 const requireTenantAdmin = () => {
     return (req, res, next) => {
-        const userRoles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+        // CRITICAL: Check req.userContext.roles (from enhancedRls middleware)
+        // This is the source of truth for user roles resolved from database
+        const userRoles = req.userContext?.roles || req.user?.roles || (req.user?.role ? [req.user.role] : []);
         const userRolesUpper = userRoles.map(r => typeof r === 'string' ? r.toUpperCase().replace(/\s+/g, '_') : r);
 
         if (userRolesUpper.includes('SUPER_ADMIN')) {
             return sendError(res, {
                 status: 403,
-                body: { success: false, error: 'Super admin cannot perform this action', code: 'INSUFFICIENT_PERMISSIONS', required: ['Tenant Admin'], actual: userRoles }
+                body: { success: false, error: 'Super admin cannot perform this action', code: 'INSUFFICIENT_PERMISSIONS', required: ['School Admin'], actual: userRoles }
             });
         }
 
@@ -98,7 +102,7 @@ const requireTenantAdmin = () => {
         if (!isTenantAdmin) {
             return sendError(res, {
                 status: 403,
-                body: { success: false, error: 'Insufficient permissions', code: 'INSUFFICIENT_PERMISSIONS', required: ['Tenant Admin'], actual: userRoles }
+                body: { success: false, error: 'Insufficient permissions', code: 'INSUFFICIENT_PERMISSIONS', required: ['School Admin'], actual: userRoles }
             });
         }
         next();
@@ -108,7 +112,9 @@ const requireTenantAdmin = () => {
 // Block SUPER_ADMIN from accessing tenant-only endpoints
 const blockSuperAdmin = () => {
     return (req, res, next) => {
-        const userRoles = req.user?.roles || (req.user?.role ? [req.user.role] : []);
+        // CRITICAL: Check req.userContext.roles (from enhancedRls middleware)
+        // This is the source of truth for user roles resolved from database
+        const userRoles = req.userContext?.roles || req.user?.roles || (req.user?.role ? [req.user.role] : []);
         const userRolesUpper = userRoles.map(r => typeof r === 'string' ? r.toUpperCase().replace(/\s+/g, '_') : r);
         if (userRolesUpper.includes('SUPER_ADMIN')) {
             return sendError(res, {

@@ -18,7 +18,7 @@ const createClass = asyncHandler(async (req, res) => {
     if (!tenantId) return sendError(res, { status: 400, body: { success: false, error: 'tenantId missing', code: 'TENANT_REQUIRED' } });
 
     // Prevent super admin (global) managing tenant classes
-    const userRoles = req.user.roles || (req.user.role ? [req.user.role] : []);
+    const userRoles = req.userContext?.roles || req.user?.roles || (req.user?.role ? [req.user.role] : []);
     if (userRoles.some(r => typeof r === 'string' && r.toLowerCase().includes('super'))) {
         return res.status(403).json({ success: false, error: 'Super admin cannot manage tenant classes' });
     }
@@ -48,7 +48,7 @@ const updateClass = asyncHandler(async (req, res) => {
     const tenantId = req.user && req.user.tenantId;
     const id = req.params.id;
 
-    const userRoles = req.user.roles || (req.user.role ? [req.user.role] : []);
+    const userRoles = req.userContext?.roles || req.user?.roles || (req.user?.role ? [req.user.role] : []);
     if (userRoles.some(r => typeof r === 'string' && r.toLowerCase().includes('super'))) {
         return res.status(403).json({ success: false, error: 'Super admin cannot manage tenant classes' });
     }
@@ -71,7 +71,7 @@ const deleteClass = asyncHandler(async (req, res) => {
     const tenantId = req.user && req.user.tenantId;
     const id = req.params.id;
 
-    const userRoles = req.user.roles || (req.user.role ? [req.user.role] : []);
+    const userRoles = req.userContext?.roles || req.user?.roles || (req.user?.role ? [req.user.role] : []);
     if (userRoles.some(r => typeof r === 'string' && r.toLowerCase().includes('super'))) {
         return res.status(403).json({ success: false, error: 'Super admin cannot manage tenant classes' });
     }

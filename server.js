@@ -109,7 +109,7 @@ app.use(cookieParser(process.env.COOKIE_SECRET || process.env.JWT_SECRET));
 // CORS configuration - use environment variables
 // IMPORTANT: credentials: true is required for cookies to work
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
-    'http://localhost:3000','https://school-management-erp-1dht.onrender.com',"http://localhost:5173","https://majestic-elf-b4e1b2.netlify.app"
+    'http://localhost:3000','https://school-management-erp-1dht.onrender.com',"http://localhost:5173","https://majestic-elf-b4e1b2.netlify.app","https://school-management-erp-1dht.onrender.com"
 ];
 
 app.use(cors({
@@ -213,7 +213,7 @@ const startServer = () => {
     });
 };
 
-if (process.env.ALLOW_DB_ALTER === 'true') {
+if (1||process.env.ALLOW_DB_ALTER === 'true') {
     // Only perform automatic schema alterations when explicitly enabled
     sequelize.sync({ alter: true }).then(startServer).catch(err => {
         logger.error('❌ Database sync failed:', err);

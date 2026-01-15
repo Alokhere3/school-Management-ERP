@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { authenticateToken } = require('../middleware/auth');
-const { authorize } = require('../middleware/rbac');
+const { authorize, requireSuperAdmin } = require('../middleware/rbac');
 const asyncHandler = require('../utils/asyncHandler');
 const tenantController = require('../controllers/tenantController');
 
@@ -60,14 +60,15 @@ const router = express.Router();
  *       403:
  *         description: Forbidden
  */
-// GET /api/tenants - List all tenants
-router.get('/', authenticateToken, authorize('tenant_management', 'read'), asyncHandler(tenantController.listTenants));
+// GET /api/tenants - List all tenants (SUPER_ADMIN ONLY)
+router.get('/', authenticateToken, requireSuperAdmin, authorize('tenant_management', 'read'), asyncHandler(tenantController.listTenants));
 
 /**
- * POST /api/tenants - create tenant
+ * POST /api/tenants - create tenant (SUPER_ADMIN ONLY)
  */
 router.post('/',
 	authenticateToken,
+	requireSuperAdmin,
 	authorize('tenant_management', 'create'),
 	[ body('name').isLength({ min: 1 }).withMessage('name is required') ],
 	asyncHandler(async (req, res, next) => {
@@ -112,8 +113,8 @@ router.post('/',
  *         description: Forbidden
  */
 
-// GET /api/tenants/:id - Get tenant by id
-router.get('/:id', authenticateToken, authorize('tenant_management', 'read'), asyncHandler(tenantController.getTenantById));
+// GET /api/tenants/:id - Get tenant by id (SUPER_ADMIN ONLY)
+router.get('/:id', authenticateToken, requireSuperAdmin, authorize('tenant_management', 'read'), asyncHandler(tenantController.getTenantById));
 /**
  * @openapi
  * /api/tenants/{id}:
@@ -133,8 +134,8 @@ router.get('/:id', authenticateToken, authorize('tenant_management', 'read'), as
  *       404:
  *         description: Not Found
  */
-// PUT /api/tenants/:id - update tenant
-router.put('/:id', authenticateToken, authorize('tenant_management', 'update'), asyncHandler(tenantController.updateTenant));
+// PUT /api/tenants/:id - update tenant (SUPER_ADMIN ONLY)
+router.put('/:id', authenticateToken, requireSuperAdmin, authorize('tenant_management', 'update'), asyncHandler(tenantController.updateTenant));
 /**
  * @openapi
  * /api/tenants/{id}:
@@ -172,8 +173,8 @@ router.put('/:id', authenticateToken, authorize('tenant_management', 'update'), 
  *       404:
  *         description: Not Found
  */
-// DELETE /api/tenants/:id - delete tenant
-router.delete('/:id', authenticateToken, authorize('tenant_management', 'delete'), asyncHandler(tenantController.deleteTenant));
+// DELETE /api/tenants/:id - delete tenant (SUPER_ADMIN ONLY)
+router.delete('/:id', authenticateToken, requireSuperAdmin, authorize('tenant_management', 'delete'), asyncHandler(tenantController.deleteTenant));
 /**
  * @openapi
  * /api/tenants/{id}:
