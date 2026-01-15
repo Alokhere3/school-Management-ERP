@@ -114,20 +114,16 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, Postman, etc.) - but be careful in production
-        if (!origin && process.env.NODE_ENV !== 'production') {
-            return callback(null, true);
-        }
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
+       if (allowedOrigins.includes(origin)) {
+  return callback(null, true);
+}
+return callback(new Error('Not allowed by CORS'));
+
     },
     credentials: true, // REQUIRED for cookies to work
     maxAge: 86400, // 24 hours
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+    // allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     exposedHeaders: ['X-CSRF-Token'] // Expose CSRF token header
 }));
 
@@ -213,7 +209,7 @@ const startServer = () => {
     });
 };
 
-if (1||process.env.ALLOW_DB_ALTER === 'true') {
+if (process.env.ALLOW_DB_ALTER === 'true') {
     // Only perform automatic schema alterations when explicitly enabled
     sequelize.sync({ alter: true }).then(startServer).catch(err => {
         logger.error('❌ Database sync failed:', err);
