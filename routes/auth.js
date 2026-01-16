@@ -519,7 +519,7 @@ router.post('/register', require('../middleware/validation'), async (req, res) =
  *             description: HTTP-only cookies containing access and refresh tokens
  *             schema:
  *               type: string
- *               example: accessToken=...; HttpOnly; Secure; SameSite=false
+ *               example: accessToken=...; HttpOnly; Secure; SameSite=none
  *         content:
  *           application/json:
  *             schema:

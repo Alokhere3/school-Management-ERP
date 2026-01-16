@@ -17,7 +17,7 @@ const getCookieConfig = () => {
     return {
         httpOnly: true, // Prevents JavaScript access (XSS protection)
         secure: isSecure, // Only send over HTTPS in production
-        sameSite: false, // CSRF protection - strict mode
+        sameSite: 'none', // CSRF protection - strict mode
         maxAge: 15 * 60 * 1000, // 15 minutes for access token
         path: '/', // Available to all paths
         domain: process.env.COOKIE_DOMAIN || undefined // Set domain if needed
@@ -34,7 +34,7 @@ const getRefreshCookieConfig = () => {
     return {
         httpOnly: true,
         secure: isSecure,
-        sameSite: false,
+        sameSite: 'none',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days for refresh token
         path: '/',
         domain: process.env.COOKIE_DOMAIN || undefined
@@ -64,7 +64,7 @@ function clearAuthCookies(res) {
     const baseConfig = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production' || process.env.COOKIE_SECURE === 'true',
-        sameSite: false,
+        sameSite: 'none',
         path: '/',
         domain: process.env.COOKIE_DOMAIN || undefined
     };

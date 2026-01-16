@@ -108,23 +108,17 @@ app.use(cookieParser(process.env.COOKIE_SECRET || process.env.JWT_SECRET));
 
 // CORS configuration - use environment variables
 // IMPORTANT: credentials: true is required for cookies to work
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+const allowedOrigins =  [
     'http://localhost:3000','https://school-management-erp-1dht.onrender.com',"http://localhost:5173","https://majestic-elf-b4e1b2.netlify.app","https://preeminent-cassata-f35d8c.netlify.app"
 ];
 
 app.use(cors({
-    origin: (origin, callback) => {
-       if (allowedOrigins.includes(origin)) {
-  return callback(null, true);
-}
-return callback(new Error('Not allowed by CORS'));
-
-    },
+    origin: allowedOrigins,
     credentials: true, // REQUIRED for cookies to work
     maxAge: 86400, // 24 hours
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    // methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     // allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-    exposedHeaders: ['X-CSRF-Token'] // Expose CSRF token header
+    // exposedHeaders: ['X-CSRF-Token'] // Expose CSRF token header
 }));
 
 // Rate limiting - Using new tiered approach
