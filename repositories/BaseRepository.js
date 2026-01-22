@@ -251,6 +251,10 @@ class BaseRepository {
      */
     async createWithRLS(data, userContext, options = {}) {
         const context = this.validateUserContext(userContext);
+        console.log(`[DEBUG-BASE] createWithRLS called for model: ${this.model.tableName}`);
+        console.log(`[DEBUG-BASE] options.transaction:`, options.transaction ? 'PRESENT' : 'MISSING');
+        console.log(`[DEBUG-BASE] transaction.id:`, options.transaction ? options.transaction.id : 'N/A');
+        
         this.auditLog('create', context, `fields=${Object.keys(data).join(',')}`);
 
         // CRITICAL: Enforce tenant isolation on create
@@ -259,7 +263,10 @@ class BaseRepository {
             tenantId: context.tenantId // Force tenant ID - cannot be overridden
         };
 
-        return this.model.create(recordData, options);
+        console.log(`[DEBUG-BASE] Calling model.create() with transaction:`, options.transaction ? 'YES' : 'NO');
+        const result = await this.model.create(recordData, options);
+        console.log(`[DEBUG-BASE] model.create() returned:`, result ? 'SUCCESS' : 'FAILED');
+        return result;
     }
 
     /**

@@ -89,10 +89,14 @@ class StudentRepository extends BaseRepository {
      * 
      * @param {Object} studentData - Student fields
      * @param {Object} userContext - User context
+     * @param {Object} transaction - Optional Sequelize transaction for atomicity
      * @returns {Promise<Object>} Created student
      */
-    async createStudent(studentData, userContext) {
+    async createStudent(studentData, userContext, transaction = null) {
         const context = this.validateUserContext(userContext);
+        console.log(`\n[DEBUG-STUDENT] createStudent called`);
+        console.log(`[DEBUG-STUDENT] transaction:`, transaction ? 'PRESENT' : 'MISSING');
+        console.log(`[DEBUG-STUDENT] transaction.id:`, transaction ? transaction.id : 'N/A');
         
         // Validate user can create students
         if (!this.isAdmin(context) && context.role.toLowerCase() !== 'admin') {
@@ -113,7 +117,13 @@ class StudentRepository extends BaseRepository {
             console.log(`[ROLE_NUMBER] Auto-assigned rollNumber=${studentData.rollNumber} for classId=${studentData.classId}`);
         }
 
-        return this.createWithRLS(studentData, userContext);
+        // Pass transaction to createWithRLS if provided
+        const options = transaction ? { transaction } : {};
+        console.log(`[DEBUG-STUDENT] Calling createWithRLS with options:`, { transaction: options.transaction ? 'PRESENT' : 'MISSING' });
+        const result = await this.createWithRLS(studentData, userContext, options);
+        console.log(`[DEBUG-STUDENT] createWithRLS returned, student ID:`, result.id);
+        console.log(`[DEBUG-STUDENT] createStudent completed\n`);
+        return result;
     }
 
     /**
@@ -122,18 +132,23 @@ class StudentRepository extends BaseRepository {
      * @param {String} studentId - Student ID
      * @param {Object} updateData - Fields to update
      * @param {Object} userContext - User context
+     * @param {Object} transaction - Optional Sequelize transaction for atomicity
      * @returns {Promise<Array>} [rowsUpdated, updatedRecords]
      */
-    async updateStudent(studentId, updateData, userContext) {
+    async updateStudent(studentId, updateData, userContext, transaction = null) {
         const context = this.validateUserContext(userContext);
         
         // Check if user can update this student
-        const student = await this.findStudentById(studentId, userContext);
+        // Pass transaction to findStudentById to maintain transaction context
+        const findOptions = transaction ? { transaction } : {};
+        const student = await this.findStudentById(studentId, userContext, findOptions);
         if (!student) {
             throw new Error('NOT_FOUND: Student not found or access denied');
         }
 
-        return this.updateWithRLS(studentId, updateData, userContext);
+        // Pass transaction to updateWithRLS if provided
+        const options = transaction ? { transaction } : {};
+        return this.updateWithRLS(studentId, updateData, userContext, options);
     }
 
     /**
@@ -141,16 +156,27 @@ class StudentRepository extends BaseRepository {
      * 
      * @param {String} studentId - Student ID
      * @param {Object} userContext - User context
+     * @param {Object} transaction - Optional Sequelize transaction for atomicity
      * @returns {Promise<Number>} Rows deleted
      */
-    async deleteStudent(studentId, userContext) {
+    async deleteStudent(studentId, userContext, transaction = null) {
         const context = this.validateUserContext(userContext);
         
         if (!this.isAdmin(context)) {
             throw new Error('INSUFFICIENT_PERMISSIONS: Only admins can delete students');
         }
 
-        return this.deleteWithRLS(studentId, userContext);
+        // Verify student exists before deletion
+        // Pass transaction to findStudentById to maintain transaction context
+        const findOptions = transaction ? { transaction } : {};
+        const student = await this.findStudentById(studentId, userContext, findOptions);
+        if (!student) {
+            throw new Error('NOT_FOUND: Student not found or access denied');
+        }
+
+        // Pass transaction to deleteWithRLS if provided
+        const options = transaction ? { transaction } : {};
+        return this.deleteWithRLS(studentId, userContext, options);
     }
 
     /**
@@ -249,6 +275,83 @@ class StudentRepository extends BaseRepository {
      */
     async findStudentsByStatus(status, userContext, options = {}) {
         return this.findVisibleStudents(userContext, { status }, options);
+    }
+
+    /**
+     * Get student with siblings (single efficient query via join)
+     * Called by getStudentById to fetch student + siblings in one query
+     * 
+     * @param {String} studentId - Student ID
+     * @param {Object} userContext - User context
+     * @returns {Promise<Object|null>} Student with siblings array or null
+     */
+    async findStudentWithSiblings(studentId, userContext) {
+        const context = this.validateUserContext(userContext);
+        const StudentSibling = require('../models/StudentSibling');
+
+        // Fetch student with RLS
+        const student = await this.findStudentById(studentId, userContext);
+        if (!student) {
+            return null;
+        }
+
+        // Fetch siblings efficiently via join
+        const siblingLinks = await StudentSibling.findAll({
+            where: {
+                tenantId: context.tenantId,
+                studentId: studentId
+            },
+            attributes: ['siblingStudentId'],
+            raw: true
+        });
+
+        const siblingIds = siblingLinks.map(link => link.siblingStudentId);
+        let siblings = [];
+
+        if (siblingIds.length > 0) {
+            // Fetch sibling student records (only active ones)
+            siblings = await this.model.findAll({
+                where: {
+                    id: { [Op.in]: siblingIds },
+                    tenantId: context.tenantId,
+                    status: 'active'
+                },
+                attributes: ['id', 'firstName', 'lastName', 'admissionNo', 'photoKey', 'classId', 'classData', 'rollNumber'],
+                raw: true,
+                order: [['firstName', 'ASC']]
+            });
+        }
+
+        const studentData = student.toJSON ? student.toJSON() : student;
+        studentData.siblings = siblings;
+        return studentData;
+    }
+
+    /**
+     * Delete student and cleanup sibling relationships
+     * Overrides parent deleteStudent to handle sibling cleanup
+     * 
+     * @param {String} studentId - Student ID
+     * @param {Object} userContext - User context
+     * @param {Object} transaction - Sequelize transaction
+     * @returns {Promise<Number>} Rows deleted
+     */
+    async deleteStudentWithSiblings(studentId, userContext, transaction) {
+        const context = this.validateUserContext(userContext);
+
+        if (!this.isAdmin(context)) {
+            throw new Error('INSUFFICIENT_PERMISSIONS: Only admins can delete students');
+        }
+
+        // Delete all sibling relationships for this student
+        const StudentSiblingRepository = require('./StudentSiblingRepository');
+        const StudentSibling = require('../models/StudentSibling');
+        const siblingRepo = new StudentSiblingRepository(StudentSibling);
+        
+        await siblingRepo.removeSiblingsForStudent(studentId, userContext, transaction);
+
+        // Delete the student record
+        return this.deleteWithRLS(studentId, userContext, transaction);
     }
 }
 

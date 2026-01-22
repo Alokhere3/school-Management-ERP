@@ -16,6 +16,7 @@ const router = express.Router();
  *     tags:
  *       - Students
  *     summary: List students
+ *     description: Retrieve all students with optional filtering by classId. Use classId query parameter to filter students by class.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -23,13 +24,58 @@ const router = express.Router();
  *         name: page
  *         schema:
  *           type: integer
+ *         description: Page number for pagination (default 1)
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
+ *         description: Records per page (default 20)
+ *       - in: query
+ *         name: classId
+ *         schema:
+ *           type: string
+ *         description: Optional - Filter students by class ID
  *     responses:
  *       200:
- *         description: OK
+ *         description: OK - List of students
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @openapi
+ * /api/students/class/{classId}:
+ *   get:
+ *     tags:
+ *       - Students
+ *     summary: Get all students in a class
+ *     description: Retrieve all students belonging to a specific class ID
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: classId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Class ID to filter students
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number for pagination (default 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: Records per page (default 20)
+ *     responses:
+ *       200:
+ *         description: OK - List of students in the class
+ *       400:
+ *         description: Bad Request - classId is required
+ *       401:
+ *         description: Unauthorized
  */
 
 /**
@@ -169,8 +215,11 @@ const router = express.Router();
  */
 
 
-// GET /api/students - List all students
+// GET /api/students - List all students (optionally filter by classId query param)
 router.get('/', authenticateToken, authorize('students', 'read'), asyncHandler(studentController.listStudents));
+
+// GET /api/students/class/:classId - Get all students in a specific class
+router.get('/class/:classId', authenticateToken, authorize('students', 'read'), asyncHandler(studentController.getStudentsByClass));
 
 // POST /api/students - Create student with all fields
 // When accepting multipart/form-data, run multer first so fields are populated on req.body

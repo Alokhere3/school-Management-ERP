@@ -57,6 +57,46 @@
           }
         }
       },
+      "StudentSibling": {
+        "type": "object",
+        "description": "Sibling student information (nested within Student)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Sibling student ID"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Sibling's first name"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Sibling's last name"
+          },
+          "admissionNo": {
+            "type": "string",
+            "description": "Sibling's admission number"
+          },
+          "photoUrl": {
+            "type": "string",
+            "description": "Sibling's photo URL"
+          },
+          "classId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Sibling's class ID"
+          },
+          "rollNumber": {
+            "type": "integer",
+            "description": "Sibling's roll number in class"
+          },
+          "classData": {
+            "type": "object",
+            "description": "Sibling's denormalized class information"
+          }
+        }
+      },
       "Student": {
         "type": "object",
         "properties": {
@@ -227,6 +267,13 @@
           "status": {
             "type": "string",
             "enum": ["active", "inactive"]
+          },
+          "siblings": {
+            "type": "array",
+            "description": "Array of sibling students linked to this student (only in GET responses)",
+            "items": {
+              "$ref": "#/components/schemas/StudentSibling"
+            }
           },
           "contacts": {
             "type": "array",
@@ -2505,8 +2552,8 @@
         "tags": [
           "Students"
         ],
-        "summary": "Create student with all fields",
-        "description": "Create a new student with all personal, academic, contact, and family information in a single request",
+        "summary": "Create student with all fields and optional siblings",
+        "description": "Create a new student with all personal, academic, contact, and family information in a single request. Optionally link siblings via siblingIds array. All sibling relationships are created bi-directionally in a single atomic transaction.",
         "security": [
           {
             "bearerAuth": []
@@ -2729,6 +2776,15 @@
                   "emergencyContactPhone": {
                     "type": "string",
                     "description": "Emergency contact phone number"
+                  },
+                  "siblingIds": {
+                    "type": "array",
+                    "description": "Array of sibling student IDs to link (optional). Each ID must belong to the same tenant and school.",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "example": ["sibling-uuid-1", "sibling-uuid-2"]
                   }
                 }
               }
@@ -2777,13 +2833,132 @@
         }
       }
     },
+    "/api/students/class/{classId}": {
+      "get": {
+        "tags": [
+          "Students"
+        ],
+        "summary": "Get all students in a class",
+        "description": "Retrieve all students belonging to a specific class ID with pagination support",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "classId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Class ID to filter students"
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number for pagination"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            },
+            "description": "Number of items per page"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of students in the class retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Student"
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "description": "Total number of students in class"
+                        },
+                        "pages": {
+                          "type": "integer",
+                          "description": "Total number of pages"
+                        },
+                        "current": {
+                          "type": "integer",
+                          "description": "Current page number"
+                        },
+                        "classId": {
+                          "type": "string",
+                          "description": "The class ID used for filtering"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - classId is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/students/{id}": {
       "get": {
         "tags": [
           "Students"
         ],
-        "summary": "Get student by id with all fields",
-        "description": "Returns complete student information including personal, academic, contact, address, and family details",
+        "summary": "Get student by id with all fields and siblings",
+        "description": "Returns complete student information including personal, academic, contact, address, family details, and linked siblings. Siblings are fetched in a single efficient query.",
         "security": [
           {
             "bearerAuth": []
@@ -3042,6 +3217,15 @@
                   "status": {
                     "type": "string",
                     "enum": ["active", "inactive"]
+                  },
+                  "siblingIds": {
+                    "type": "array",
+                    "description": "Array of sibling student IDs to link (optional). If provided, replaces ALL existing sibling relationships. Each ID must belong to the same tenant. Empty array removes all siblings.",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "example": ["sibling-uuid-1", "sibling-uuid-3"]
                   }
                 }
               }

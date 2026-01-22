@@ -109,7 +109,7 @@ app.use(cookieParser(process.env.COOKIE_SECRET || process.env.JWT_SECRET));
 // CORS configuration - use environment variables
 // IMPORTANT: credentials: true is required for cookies to work
 const allowedOrigins =  [
-    'http://localhost:3000','https://school-management-erp-1dht.onrender.com',"http://localhost:5173","https://majestic-elf-b4e1b2.netlify.app","https://preeminent-cassata-f35d8c.netlify.app"
+    "http://localhost:3000","http://localhost:5173","https://majestic-elf-b4e1b2.netlify.app","https://preeminent-cassata-f35d8c.netlify.app"
 ];
 
 app.use(cors({

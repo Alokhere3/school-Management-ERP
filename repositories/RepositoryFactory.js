@@ -15,12 +15,14 @@ const StaffRepository = require('./StaffRepository');
 const UserRepository = require('./UserRepository');
 const ClassRepository = require('./ClassRepository');
 const TeacherRepository = require('./TeacherRepository');
+const StudentSiblingRepository = require('./StudentSiblingRepository');
 
 const Student = require('../models/Student');
 const Staff = require('../models/Staff');
 const User = require('../models/User');
 const Class = require('../models/Class');
 const Teacher = require('../models/Teacher');
+const StudentSibling = require('../models/StudentSibling');
 
 class RepositoryFactory {
     constructor() {
@@ -30,6 +32,7 @@ class RepositoryFactory {
         this._userRepo = null;
         this._classRepo = null;
         this._teacherRepo = null;
+        this._studentSiblingRepo = null;
     }
 
     /**
@@ -93,6 +96,18 @@ class RepositoryFactory {
     }
 
     /**
+     * Get StudentSiblingRepository instance
+     * 
+     * @returns {StudentSiblingRepository}
+     */
+    get studentSibling() {
+        if (!this._studentSiblingRepo) {
+            this._studentSiblingRepo = new StudentSiblingRepository(StudentSibling);
+        }
+        return this._studentSiblingRepo;
+    }
+
+    /**
      * Get all repositories at once
      * 
      * @returns {Object} Object with all repository instances
@@ -103,14 +118,15 @@ class RepositoryFactory {
             staff: this.staff,
             user: this.user,
             class: this.class,
-            teacher: this.teacher
+            teacher: this.teacher,
+            studentSibling: this.studentSibling
         };
     }
 
     /**
      * Create a new instance for testing or specific contexts
      * 
-     * @param {String} repositoryName - Name of repository (student, staff, user, class, teacher)
+     * @param {String} repositoryName - Name of repository (student, staff, user, class, teacher, studentSibling)
      * @param {Object} model - Sequelize model to use
      * @returns {BaseRepository} New repository instance
      */
@@ -126,6 +142,8 @@ class RepositoryFactory {
                 return new ClassRepository(model);
             case 'teacher':
                 return new TeacherRepository(model);
+            case 'studentsibling':
+                return new StudentSiblingRepository(model);
             default:
                 throw new Error(`Unknown repository: ${repositoryName}`);
         }

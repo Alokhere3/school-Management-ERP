@@ -4,6 +4,7 @@ const { buildProxyUrl, generateS3Key, validateExtensionForCategory } = require('
 const { sendError } = require('../utils/errorMapper');
 const { RepositoryFactory } = require('../repositories');
 const { s3Client, bucket: S3_BUCKET, uploadBufferToS3 } = require('../config/s3');
+const { sequelize } = require('../config/database');
 const logger = require('../config/logger');
 
 // Initialize repository factory for student data access
@@ -258,34 +259,87 @@ const createStudent = asyncHandler(async (req, res) => {
         status: req.body.status || 'active'
     };
 
-    // RLS enforcement: Repository enforces tenant isolation automatically
-    const student = await repos.student.createStudent(payload, userContext);
-    
-    // After creation, if we have a file buffer, upload it to S3 using the real student ID
-    if (req.file && req.file.buffer) {
-        if (!validateExtensionForCategory(req.file.originalname, 'profile')) {
-            return sendError(res, { status: 400, body: { success: false, error: 'Invalid photo type', code: 'VALIDATION_ERROR' } });
+    // Extract sibling IDs for later processing
+    const siblingIds = req.body.siblingIds || [];
+    console.log(`[DEBUG-CONTROLLER] siblingIds received:`, siblingIds);
+    console.log(`[DEBUG-CONTROLLER] siblingIds type:`, typeof siblingIds);
+    console.log(`[DEBUG-CONTROLLER] siblingIds is array:`, Array.isArray(siblingIds));
+
+    // Start transaction for atomic student + sibling creation
+    const transaction = await sequelize.transaction();
+    console.log(`[DEBUG-CONTROLLER] Transaction created for createStudent`);
+    console.log(`[DEBUG-CONTROLLER] Transaction ID:`, transaction.id);
+    console.log(`[DEBUG-CONTROLLER] Transaction type:`, transaction.constructor.name);
+
+    try {
+        // RLS enforcement: Repository enforces tenant isolation automatically
+        // Pass transaction to student creation
+        console.log(`[DEBUG-CONTROLLER] Calling repos.student.createStudent with transaction...`);
+        const student = await repos.student.createStudent(payload, userContext, transaction);
+        
+        // After creation, if we have a file buffer, upload it to S3 using the real student ID
+        if (req.file && req.file.buffer) {
+            if (!validateExtensionForCategory(req.file.originalname, 'profile')) {
+                await transaction.rollback();
+                return sendError(res, { status: 400, body: { success: false, error: 'Invalid photo type', code: 'VALIDATION_ERROR' } });
+            }
+            const photoKey = generateS3Key(userContext.tenantId, 'students', student.id, 'profile', req.file.originalname);
+            try {
+                await uploadBufferToS3(s3Client, S3_BUCKET, photoKey, req.file.buffer, req.file.mimetype);
+                // Update with transaction
+                await repos.student.updateStudent(student.id, { photoKey }, userContext, transaction);
+                logger.info(`[createStudent] Uploaded photo to S3: ${photoKey}`);
+            } catch (err) {
+                await transaction.rollback();
+                logger.error(`[createStudent] Photo upload failed: ${err.message}`);
+                return sendError(res, { status: 500, body: { success: false, error: 'Photo upload failed', code: 'S3_ERROR' } });
+            }
         }
-        const photoKey = generateS3Key(userContext.tenantId, 'students', student.id, 'profile', req.file.originalname);
-        try {
-            await uploadBufferToS3(s3Client, S3_BUCKET, photoKey, req.file.buffer, req.file.mimetype);
-            await repos.student.updateStudent(student.id, { photoKey }, userContext);
-            logger.info(`[createStudent] Uploaded photo to S3: ${photoKey}`);
-        } catch (err) {
-            logger.error(`[createStudent] Photo upload failed: ${err.message}`);
-            return sendError(res, { status: 500, body: { success: false, error: 'Photo upload failed', code: 'S3_ERROR' } });
+
+        // Create sibling relationships if provided
+        if (siblingIds && siblingIds.length > 0) {
+            try {
+                console.log(`[DEBUG] [createStudent] STARTING SIBLING CREATION for student ${student.id} with sibling IDs:`, siblingIds);
+                console.log(`[DEBUG] [createStudent] Transaction object:`, transaction ? 'PRESENT' : 'MISSING');
+                console.log(`[DEBUG] [createStudent] Transaction ID:`, transaction ? transaction.id : 'N/A');
+                
+                const siblingResult = await repos.studentSibling.createSiblingRelationships(student.id, siblingIds, userContext, transaction);
+                console.log(`[DEBUG] [createStudent] Sibling creation returned:`, siblingResult);
+                logger.info(`[createStudent] Created ${siblingIds.length} sibling relationships for student ${student.id}`);
+            } catch (siblingErr) {
+                console.error(`[DEBUG] [createStudent] SIBLING CREATION ERROR:`, siblingErr);
+                await transaction.rollback();
+                logger.error(`[createStudent] Sibling creation failed: ${siblingErr.message}`);
+                return sendError(res, { status: 400, body: { success: false, error: siblingErr.message, code: 'SIBLING_ERROR' } });
+            }
         }
+
+        // Commit transaction
+        console.log(`[DEBUG-CONTROLLER] COMMITTING TRANSACTION...`);
+        await transaction.commit();
+        console.log(`[DEBUG-CONTROLLER] TRANSACTION COMMITTED SUCCESSFULLY`);
+
+        // Fetch updated student with siblings
+        console.log(`[DEBUG-CONTROLLER] Fetching student with siblings...`);
+        const updated = await repos.student.findStudentWithSiblings(student.id, userContext);
+        console.log(`[DEBUG-CONTROLLER] Student fetched with ${updated.siblings ? updated.siblings.length : 0} siblings`);
+        const s = updated.toJSON ? updated.toJSON() : updated;
+        if (s.photoKey) {
+            s.photoUrl = buildProxyUrl(s.photoKey);
+        } else {
+            s.photoUrl = null;
+        }
+        res.status(201).json({ success: true, data: s });
+    } catch (err) {
+        console.error(`[DEBUG-CONTROLLER] ERROR IN CREATE STUDENT:`, err.message);
+        console.error(`[DEBUG-CONTROLLER] ROLLING BACK TRANSACTION...`);
+        await transaction.rollback();
+        console.error(`[DEBUG-CONTROLLER] TRANSACTION ROLLED BACK`);
+        console.error('Error creating student:', err);
+        if (err.sql) console.error('SQL Error:', err.sql);
+        if (err.stack) console.error('Stack:', err.stack);
+        return sendError(res, err, 'Failed to create student');
     }
-    
-    // Fetch updated student
-    const updated = await repos.student.findStudentById(student.id, userContext);
-    const s = updated.toJSON ? updated.toJSON() : updated;
-    if (s.photoKey) {
-        s.photoUrl = buildProxyUrl(s.photoKey);
-    } else {
-        s.photoUrl = null;
-    }
-    res.status(201).json({ success: true, data: s });
 });
 
 // PUT /api/students/:id
@@ -335,6 +389,9 @@ const updateStudent = asyncHandler(async (req, res) => {
             return sendError(res, { status: 500, body: { success: false, error: 'Photo upload failed', code: 'S3_ERROR' } });
         }
     }
+
+    // Extract sibling IDs for update (if provided)
+    const siblingIds = req.body.siblingIds;
 
     const updates = {
         // Basic Info
@@ -394,10 +451,36 @@ const updateStudent = asyncHandler(async (req, res) => {
     // Remove undefined fields
     Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
 
-    // RLS enforcement: Repository validates access and updates only if allowed
+    // Start transaction for atomic student + sibling update
+    const transaction = await sequelize.transaction();
+
     try {
-        await repos.student.updateStudent(studentId, updates, userContext);
-        const student = await repos.student.findStudentById(studentId, userContext);
+        // RLS enforcement: Repository validates access and updates only if allowed
+        // Pass transaction to student update
+        await repos.student.updateStudent(studentId, updates, userContext, transaction);
+        
+        // Handle sibling relationship updates if provided
+        if (siblingIds !== undefined) {
+            try {
+                // Remove all existing sibling relationships for this student
+                await repos.studentSibling.removeSiblingsForStudent(studentId, userContext, transaction);
+                
+                // Create new sibling relationships if provided
+                if (siblingIds && siblingIds.length > 0) {
+                    await repos.studentSibling.createSiblingRelationships(studentId, siblingIds, userContext, transaction);
+                    logger.info(`[updateStudent] Updated ${siblingIds.length} sibling relationships for student ${studentId}`);
+                }
+            } catch (siblingErr) {
+                await transaction.rollback();
+                logger.error(`[updateStudent] Sibling update failed: ${siblingErr.message}`);
+                return sendError(res, { status: 400, body: { success: false, error: siblingErr.message, code: 'SIBLING_ERROR' } });
+            }
+        }
+
+        // Commit transaction
+        await transaction.commit();
+
+        const student = await repos.student.findStudentWithSiblings(studentId, userContext);
         
         if (!student) {
             return sendError(res, { status: 404, body: { success: false, error: 'Student not found', code: 'NOT_FOUND' } });
@@ -411,10 +494,60 @@ const updateStudent = asyncHandler(async (req, res) => {
         }
         res.json({ success: true, data: s });
     } catch (err) {
+        await transaction.rollback();
         if (err.message.includes('INSUFFICIENT_PERMISSIONS')) {
             return sendError(res, { status: 403, body: { success: false, error: err.message, code: 'INSUFFICIENT_PERMISSIONS' } });
         }
         return sendError(res, err, 'Failed to update student');
+    }
+});
+
+// GET /api/students/class/:classId
+const getStudentsByClass = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 20 } = req.query;
+    const classId = req.params.classId;
+    const userContext = req.userContext || req.user;
+    
+    if (!userContext) {
+        return sendError(res, { status: 401, body: { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' } });
+    }
+    
+    if (!classId) {
+        return sendError(res, { status: 400, body: { success: false, error: 'classId is required', code: 'CLASS_ID_REQUIRED' } });
+    }
+    
+    try {
+        // RLS enforcement: Repository returns only accessible students
+        const options = { page: Number(page), limit: Number(limit) };
+        const { count, rows } = await repos.student.findStudentsByClass(classId, userContext, options);
+        
+        console.log('[DEBUG] getStudentsByClass - classId:', classId, 'found:', rows.length, 'total:', count);
+        
+        // Convert S3 keys to proxy URLs (backend serves images)
+        const dataWithProxyUrls = rows.map((student) => {
+            const s = student.toJSON ? student.toJSON() : student;
+            if (s.photoKey) {
+                s.photoUrl = buildProxyUrl(s.photoKey);
+            } else {
+                s.photoUrl = null;
+            }
+            return s;
+        });
+        
+        res.json({ 
+            success: true, 
+            data: dataWithProxyUrls, 
+            pagination: { 
+                total: count, 
+                pages: Math.ceil(count / limit), 
+                current: Number(page),
+                classId: classId
+            } 
+        });
+    } catch (err) {
+        console.error('Error fetching students by class:', err);
+        if (err.sql) console.error('SQL Error:', err.sql);
+        return sendError(res, err, 'Failed to fetch students by class');
     }
 });
 
@@ -428,7 +561,8 @@ const getStudentById = asyncHandler(async (req, res) => {
     }
     
     // RLS enforcement: Repository returns null if user doesn't have access
-    const student = await repos.student.findStudentById(studentId, userContext);
+    // Uses single query with join to fetch student + siblings
+    const student = await repos.student.findStudentWithSiblings(studentId, userContext);
     
     if (!student) {
         return sendError(res, { status: 404, body: { success: false, error: 'Student not found', code: 'NOT_FOUND' } });
@@ -440,6 +574,19 @@ const getStudentById = asyncHandler(async (req, res) => {
     } else {
         s.photoUrl = null;
     }
+    
+    // Convert sibling photoKeys to photoUrls
+    if (s.siblings && Array.isArray(s.siblings)) {
+        s.siblings = s.siblings.map(sibling => {
+            if (sibling.photoKey) {
+                sibling.photoUrl = buildProxyUrl(sibling.photoKey);
+            } else {
+                sibling.photoUrl = null;
+            }
+            return sibling;
+        });
+    }
+    
     res.json({ success: true, data: s });
 });
 
@@ -452,11 +599,22 @@ const deleteStudent = asyncHandler(async (req, res) => {
         return sendError(res, { status: 401, body: { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' } });
     }
     
-    // RLS enforcement: Repository validates deletion permissions
+    // Start transaction for atomic student + sibling deletion
+    const transaction = await sequelize.transaction();
+
     try {
-        await repos.student.deleteStudent(studentId, userContext);
+        // RLS enforcement: Repository validates deletion permissions and handles sibling cleanup
+        // Remove all sibling relationships with transaction
+        await repos.studentSibling.removeSiblingsForStudent(studentId, userContext, transaction);
+        
+        // Delete the student with transaction
+        await repos.student.deleteStudent(studentId, userContext, transaction);
+        
+        // Commit transaction
+        await transaction.commit();
         res.status(204).send();
     } catch (err) {
+        await transaction.rollback();
         if (err.message.includes('INSUFFICIENT_PERMISSIONS')) {
             return sendError(res, { status: 403, body: { success: false, error: err.message, code: 'INSUFFICIENT_PERMISSIONS' } });
         }
@@ -469,6 +627,7 @@ module.exports = {
     createStudent,
     updateStudent,
     getStudentById,
+    getStudentsByClass,
     deleteStudent,
     startOnboarding,
     updateOnboarding

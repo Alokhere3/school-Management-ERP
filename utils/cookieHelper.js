@@ -17,7 +17,7 @@ const getCookieConfig = () => {
     return {
         httpOnly: true, // Prevents JavaScript access (XSS protection)
         secure: isSecure, // Only send over HTTPS in production
-        sameSite: 'none', // CSRF protection - strict mode
+        sameSite: isProduction ? 'none' : 'lax', // 'none' requires secure: true for cross-origin; 'lax' for localhost
         maxAge: 15 * 60 * 1000, // 15 minutes for access token
         path: '/', // Available to all paths
         domain: process.env.COOKIE_DOMAIN || undefined // Set domain if needed
@@ -34,7 +34,7 @@ const getRefreshCookieConfig = () => {
     return {
         httpOnly: true,
         secure: isSecure,
-        sameSite: 'none',
+        sameSite: isProduction ? 'none' : 'lax', // 'none' requires secure: true for cross-origin; 'lax' for localhost
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days for refresh token
         path: '/',
         domain: process.env.COOKIE_DOMAIN || undefined
@@ -61,10 +61,13 @@ function setRefreshTokenCookie(res, token) {
  * Clear authentication cookies
  */
 function clearAuthCookies(res) {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isSecure = isProduction || process.env.COOKIE_SECURE === 'true';
+    
     const baseConfig = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production' || process.env.COOKIE_SECURE === 'true',
-        sameSite: 'none',
+        secure: isSecure,
+        sameSite: isProduction ? 'none' : 'lax', // 'none' requires secure: true for cross-origin; 'lax' for localhost
         path: '/',
         domain: process.env.COOKIE_DOMAIN || undefined
     };
