@@ -72,7 +72,30 @@ if (!process.env.JWT_SECRET) {
     process.exit(1);
 }
 
-// Security
+// Cookie parser middleware (must be before CORS and routes)
+// Use COOKIE_SECRET for signing cookies (different from JWT_SECRET for defense in depth)
+app.use(cookieParser(process.env.COOKIE_SECRET || process.env.JWT_SECRET));
+
+// CORS configuration - use environment variables
+// IMPORTANT: credentials: true is required for cookies to work
+// CRITICAL: CORS middleware MUST come before helmet and other security middleware
+const allowedOrigins = [
+    "https://preeminent-cassata-f35d8c.netlify.app",
+    "https://majestic-elf-b4e1b2.netlify.app",
+    "http://localhost:3000",
+    "http://localhost:5173"
+];
+
+app.use(cors({
+    origin: allowedOrigins,
+    credentials: true, // REQUIRED for cookies to work
+    maxAge: 86400, // 24 hours
+    // methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    // allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+    // exposedHeaders: ['X-CSRF-Token'] // Expose CSRF token header
+}));
+
+// Security - IMPORTANT: helmet comes AFTER CORS so it doesn't override CORS headers
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -80,7 +103,7 @@ app.use(helmet({
             scriptSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "https:"],
-            connectSrc: ["'self'"]
+            connectSrc: ["'self'", "https://preeminent-cassata-f35d8c.netlify.app", "https://majestic-elf-b4e1b2.netlify.app", "http://localhost:3000", "http://localhost:5173"]
         }
     },
     crossOriginEmbedderPolicy: true,
@@ -100,25 +123,6 @@ app.use(helmet({
     permittedCrossDomainPolicies: false,
     referrerPolicy: { policy: "no-referrer" },
     xssFilter: true
-}));
-
-// Cookie parser middleware (must be before routes)
-// Use COOKIE_SECRET for signing cookies (different from JWT_SECRET for defense in depth)
-app.use(cookieParser(process.env.COOKIE_SECRET || process.env.JWT_SECRET));
-
-// CORS configuration - use environment variables
-// IMPORTANT: credentials: true is required for cookies to work
-const allowedOrigins =  ["https://preeminent-cassata-f35d8c.netlify.app",
-    "http://localhost:3000","http://localhost:5173","https://majestic-elf-b4e1b2.netlify.app",
-];
-
-app.use(cors({
-    origin: allowedOrigins,
-    credentials: true, // REQUIRED for cookies to work
-    maxAge: 86400, // 24 hours
-    // methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    // allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-    // exposedHeaders: ['X-CSRF-Token'] // Expose CSRF token header
 }));
 
 // Rate limiting - Using new tiered approach
