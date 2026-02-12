@@ -85,7 +85,7 @@ const router = express.Router();
  *     tags:
  *       - Students
  *     summary: Create student with all fields
- *     description: Create a new student with all personal, academic, contact, and family information in a single request
+ *     description: Create a new student with all personal, academic, contact, and family information in a single request. Admission number is auto-generated per school.
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -95,13 +95,13 @@ const router = express.Router();
  *           schema:
  *             type: object
  *             required:
- *               - admissionNo
  *               - firstName
  *               - dateOfBirth
  *             properties:
  *               # Basic Info
  *               admissionNo:
  *                 type: string
+ *                 description: Auto-generated if not provided
  *               firstName:
  *                 type: string
  *               lastName:
@@ -229,7 +229,6 @@ router.post('/',
     require('../middleware/validation'), // Input sanitization
     upload.single('photo'),
     [
-        body('admissionNo').isLength({ min: 1 }).withMessage('admissionNo is required'),
         body('firstName').isLength({ min: 1 }).withMessage('firstName is required'),
         body('dateOfBirth').optional().isISO8601().withMessage('dateOfBirth must be a valid date'),
         body('gender').optional().isIn(['Male', 'Female', 'Other']).withMessage('gender must be Male, Female, or Other'),

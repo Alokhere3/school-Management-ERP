@@ -13,7 +13,7 @@
 
 const logger = require('../config/logger');
 const { Op } = require('sequelize');
-const PermissionScope = require('../models/PermissionScope');
+// const PermissionScope = require('../models/PermissionScope'); // Removed in Phase 6
 
 class BaseRepository {
     constructor(model, resourceName = null) {
@@ -86,44 +86,68 @@ class BaseRepository {
     applyRLSFilters(where, userContext, action = 'read') {
         const baseWhere = { ...where, ...this.buildTenantFilter(userContext) };
 
-        const { role, userId, roles } = userContext;
+        const { role, userId, roles, permissions } = userContext;
 
-        // Get permission scope using permission model (no hardcoded roles)
-        const scope = PermissionScope.getMaxScope(this.resourceName, roles);
+        // Use ScopeResolver if permissions exist (New RBAC)
+        let scope = 'none';
+        let conditions = [];
+
+        if (permissions && Object.keys(permissions).length > 0) {
+            const ScopeResolver = require('../services/ScopeResolver');
+            const resolved = ScopeResolver.resolve(userContext, this.resourceName, action);
+
+            if (!resolved.allowed) {
+                scope = 'none'; // Denied
+            } else {
+                scope = resolved.scope;
+                conditions = resolved.conditions;
+            }
+        } else {
+            // Fallback: If no permissions found, default to NONE (Secure by default)
+            scope = 'none';
+        }
 
         logger.debug({
             message: 'RLS_SCOPE_RESOLUTION',
             resource: this.resourceName,
-            roles,
+            action,
             scope,
             userId,
-            tenantId: userContext.tenantId
+            tenantId: userContext.tenantId,
+            source: permissions ? 'ScopeResolver' : 'LegacyRole'
         });
 
         // Apply access restrictions based on scope
+        // Note: Scopes are now lowercase strings from ScopeResolver ('tenant', 'owned', 'self', 'none')
         switch (scope) {
-            case PermissionScope.SCOPES.TENANT:
+            case 'tenant':
                 // TENANT scope: User sees all records in their tenant
                 // No additional WHERE clause needed (already filtered by tenantId)
                 return baseWhere;
 
-            case PermissionScope.SCOPES.OWNED:
+            case 'owned':
                 // OWNED scope: User sees records they own or are related to
                 // Repository-specific implementation: StudentRepository, StaffRepository, etc.
                 // This is customized per entity repository (not in base)
                 return this.applyOwnedFilter(baseWhere, userContext, action);
 
-            case PermissionScope.SCOPES.SELF:
+            case 'self':
                 // SELF scope: User sees only their own record
                 baseWhere.userId = userId;
                 return baseWhere;
 
-            case PermissionScope.SCOPES.NONE:
+            case 'none':
                 // NONE scope: User has no access - return impossible condition
                 baseWhere.id = { [Op.eq]: null }; // Will return no records
                 return baseWhere;
 
             default:
+                // Handle legacy uppercase scopes if any remain, or treat as error
+                if (scope === 'TENANT') return baseWhere;
+                if (scope === 'OWNED') return this.applyOwnedFilter(baseWhere, userContext, action);
+                if (scope === 'SELF') { baseWhere.userId = userId; return baseWhere; }
+                if (scope === 'NONE') { baseWhere.id = { [Op.eq]: null }; return baseWhere; }
+
                 throw new Error(`UNKNOWN_SCOPE: ${scope}`);
         }
     }
@@ -197,7 +221,7 @@ class BaseRepository {
         this.auditLog('findAll', context, `filters=${JSON.stringify(filters)}`);
 
         const where = this.applyRLSFilters(filters, context, 'read');
-        
+
         const { page = 1, limit = 20, offset = 0, order, raw = false } = options;
         const calculatedOffset = offset || (page - 1) * limit;
 
@@ -224,7 +248,7 @@ class BaseRepository {
         this.auditLog('findAndCount', context, `filters=${JSON.stringify(filters)}`);
 
         const where = this.applyRLSFilters(filters, context, 'read');
-        
+
         const { page = 1, limit = 20, offset = 0, order, raw = false } = options;
         const calculatedOffset = offset || (page - 1) * limit;
 
@@ -254,7 +278,7 @@ class BaseRepository {
         console.log(`[DEBUG-BASE] createWithRLS called for model: ${this.model.tableName}`);
         console.log(`[DEBUG-BASE] options.transaction:`, options.transaction ? 'PRESENT' : 'MISSING');
         console.log(`[DEBUG-BASE] transaction.id:`, options.transaction ? options.transaction.id : 'N/A');
-        
+
         this.auditLog('create', context, `fields=${Object.keys(data).join(',')}`);
 
         // CRITICAL: Enforce tenant isolation on create
@@ -317,7 +341,7 @@ class BaseRepository {
     hasRole(userContext, roles) {
         const context = this.validateUserContext(userContext);
         const rolesArray = Array.isArray(roles) ? roles : [roles];
-        return rolesArray.some(r => 
+        return rolesArray.some(r =>
             context.roles.some(ur => ur.toLowerCase().includes(r.toLowerCase()))
         );
     }

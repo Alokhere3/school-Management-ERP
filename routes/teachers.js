@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../middleware/auth');
-const { requireRole } = require('../middleware/roleAuth');
+const { authorize } = require('../middleware/rbac'); // Switched to RBAC
 const { upload } = require('../config/s3');
 const { body, validationResult, query, param } = require('express-validator');
 const asyncHandler = require('../utils/asyncHandler');
@@ -9,6 +9,7 @@ const { sendError } = require('../utils/errorMapper');
 
 const router = express.Router();
 
+// ... (Validations remain unchanged) ...
 /**
  * Validation middleware for teacher creation
  */
@@ -17,91 +18,91 @@ const validateCreateTeacher = [
         .trim()
         .notEmpty().withMessage('firstName is required')
         .isLength({ min: 1, max: 100 }).withMessage('firstName must be between 1 and 100 characters'),
-    
+
     body('lastName')
         .trim()
         .notEmpty().withMessage('lastName is required')
         .isLength({ min: 1, max: 100 }).withMessage('lastName must be between 1 and 100 characters'),
-    
+
     body('email')
         .trim()
         .notEmpty().withMessage('email is required')
         .isEmail().withMessage('email must be a valid email address'),
-    
+
     body('password')
         .notEmpty().withMessage('password is required')
         .isLength({ min: 8 }).withMessage('password must be at least 8 characters long'),
-    
+
     body('teacherId')
         .optional({ checkFalsy: true })
         .trim()
         .isLength({ min: 1, max: 100 }).withMessage('teacherId must be between 1 and 100 characters'),
-    
+
     body('phone')
         .optional({ checkFalsy: true })
         .trim()
         .matches(/^[0-9]{10,15}$/).withMessage('phone must be 10-15 digits'),
-    
+
     body('gender')
         .optional()
         .isIn(['Male', 'Female', 'Other']).withMessage('gender must be Male, Female, or Other'),
-    
+
     body('bloodGroup')
         .optional()
         .isLength({ min: 1, max: 10 }).withMessage('bloodGroup must be between 1 and 10 characters'),
-    
+
     body('maritalStatus')
         .optional()
         .isIn(['Single', 'Married', 'Divorced', 'Widowed']).withMessage('maritalStatus must be Single, Married, Divorced, or Widowed'),
-    
+
     body('contractType')
         .optional()
         .isIn(['Permanent', 'Temporary', 'Contract', 'Probation']).withMessage('contractType must be valid'),
-    
+
     body('workShift')
         .optional()
         .isIn(['Morning', 'Afternoon', 'Night']).withMessage('workShift must be Morning, Afternoon, or Night'),
-    
+
     body('basicSalary')
         .optional()
         .isDecimal().withMessage('basicSalary must be a valid decimal number'),
-    
+
     body('medicalLeaves')
         .optional()
         .isInt({ min: 0 }).withMessage('medicalLeaves must be a non-negative integer'),
-    
+
     body('casualLeaves')
         .optional()
         .isInt({ min: 0 }).withMessage('casualLeaves must be a non-negative integer'),
-    
+
     body('maternityLeaves')
         .optional()
         .isInt({ min: 0 }).withMessage('maternityLeaves must be a non-negative integer'),
-    
+
     body('sickLeaves')
         .optional()
         .isInt({ min: 0 }).withMessage('sickLeaves must be a non-negative integer'),
-    
+
     body('status')
         .optional()
         .isIn(['active', 'inactive', 'on-leave', 'suspended', 'resigned']).withMessage('status must be valid'),
-    
+
     body('facebookUrl')
         .optional()
         .isURL().withMessage('facebookUrl must be a valid URL'),
-    
+
     body('instagramUrl')
         .optional()
         .isURL().withMessage('instagramUrl must be a valid URL'),
-    
+
     body('linkedinUrl')
         .optional()
         .isURL().withMessage('linkedinUrl must be a valid URL'),
-    
+
     body('youtubeUrl')
         .optional()
         .isURL().withMessage('youtubeUrl must be a valid URL'),
-    
+
     body('twitterUrl')
         .optional()
         .isURL().withMessage('twitterUrl must be a valid URL')
@@ -115,66 +116,66 @@ const validateUpdateTeacher = [
         .optional()
         .trim()
         .isLength({ min: 1, max: 100 }).withMessage('firstName must be between 1 and 100 characters'),
-    
+
     body('lastName')
         .optional()
         .trim()
         .isLength({ min: 1, max: 100 }).withMessage('lastName must be between 1 and 100 characters'),
-    
+
     body('email')
         .optional()
         .trim()
         .isEmail().withMessage('email must be a valid email address'),
-    
+
     body('phone')
         .optional({ checkFalsy: true })
         .trim()
         .matches(/^[0-9]{10,15}$/).withMessage('phone must be 10-15 digits'),
-    
+
     body('gender')
         .optional()
         .isIn(['Male', 'Female', 'Other']).withMessage('gender must be Male, Female, or Other'),
-    
+
     body('bloodGroup')
         .optional()
         .isLength({ min: 1, max: 10 }).withMessage('bloodGroup must be between 1 and 10 characters'),
-    
+
     body('maritalStatus')
         .optional()
         .isIn(['Single', 'Married', 'Divorced', 'Widowed']).withMessage('maritalStatus must be valid'),
-    
+
     body('contractType')
         .optional()
         .isIn(['Permanent', 'Temporary', 'Contract', 'Probation']).withMessage('contractType must be valid'),
-    
+
     body('workShift')
         .optional()
         .isIn(['Morning', 'Afternoon', 'Night']).withMessage('workShift must be valid'),
-    
+
     body('basicSalary')
         .optional()
         .isDecimal().withMessage('basicSalary must be a valid decimal number'),
-    
+
     body('status')
         .optional()
         .isIn(['active', 'inactive', 'on-leave', 'suspended', 'resigned']).withMessage('status must be valid'),
-    
+
     body('facebookUrl')
         .optional()
         .isURL().withMessage('facebookUrl must be a valid URL'),
-    
+
     body('instagramUrl')
         .optional()
         .isURL().withMessage('instagramUrl must be a valid URL'),
-    
+
     body('linkedinUrl')
         .optional()
         .isURL().withMessage('linkedinUrl must be a valid URL'),
-    
+
     body('youtubeUrl')
         .optional()
         .isURL().withMessage('youtubeUrl must be a valid URL'),
-    
+
     body('twitterUrl')
         .optional()
         .isURL().withMessage('twitterUrl must be a valid URL')
@@ -313,7 +314,7 @@ const handleValidationErrors = (req, res, next) => {
  */
 router.post('/',
     authenticateToken,
-    requireRole(['admin', 'principal']),
+    authorize('teacher', 'create'),
     upload.fields([
         { name: 'profileImage', maxCount: 1 },
         { name: 'resume', maxCount: 1 },
@@ -388,7 +389,7 @@ router.post('/',
  */
 router.get('/',
     authenticateToken,
-    requireRole(['admin', 'principal', 'teacher']),
+    authorize('teacher', 'read'),
     teacherController.listTeachers
 );
 
@@ -426,7 +427,7 @@ router.get('/',
  */
 router.get('/:id',
     authenticateToken,
-    requireRole(['admin', 'principal', 'teacher']),
+    authorize('teacher', 'read'),
     param('id').isUUID().withMessage('id must be a valid UUID'),
     handleValidationErrors,
     teacherController.getTeacherById
@@ -435,7 +436,7 @@ router.get('/:id',
 // Generate presigned upload URL for teacher files
 router.post('/:id/presign',
     authenticateToken,
-    requireRole(['admin','principal','teacher']),
+    authorize('teacher', 'update'),
     asyncHandler(async (req, res, next) => {
         // Delegate to controller
         return teacherController.presignTeacherUpload(req, res, next);
@@ -514,7 +515,7 @@ router.post('/:id/presign',
  */
 router.put('/:id',
     authenticateToken,
-    requireRole(['admin', 'principal', 'teacher']),
+    authorize('teacher', 'update'),
     upload.fields([
         { name: 'profileImage', maxCount: 1 },
         { name: 'resume', maxCount: 1 },
@@ -553,7 +554,7 @@ router.put('/:id',
  */
 router.delete('/:id',
     authenticateToken,
-    requireRole(['admin']),
+    authorize('teacher', 'delete'),
     param('id').isUUID().withMessage('id must be a valid UUID'),
     handleValidationErrors,
     teacherController.deleteTeacher

@@ -1,0 +1,37 @@
+[INFO] Starting Phase 0 Verification: Pre-Flight Safety Checks
+[PASS] Backup confirmation verified (Simulated).
+[PASS] Role renaming disabled (Verified via code modification).
+[PASS] Verbose logging enabled.
+[FAIL] Database connection failed: Access denied for user 'root'@'localhost' (using password: YES)
+[INFO] Starting Phase 0 Verification: Pre-Flight Safety Checks
+[PASS] Backup confirmation verified (Simulated).
+[PASS] Role renaming disabled (Verified via code modification).
+[PASS] Verbose logging enabled.
+[FAIL] Database connection failed: Access denied for user 'root'@'localhost' (using password: NO)
+[INFO] Starting Phase 0 Verification: Pre-Flight Safety Checks
+[PASS] Backup confirmation verified (Simulated).
+[PASS] Role renaming disabled (Verified via code modification).
+[PASS] Verbose logging enabled.
+[PASS] Database connection successful.
+[INFO] Starting Phase 1 Verification: Canonical Role Identity
+[PASS] Column 'code' exists in 'roles' table.
+[PASS] All roles have a code code.
+[PASS] All user_roles have roleId populated.
+[INFO] Starting Phase 2 Verification: Permission Policy Engine
+[PASS] role_permissions schema verified.
+[PASS] Schema ready for Policy Engine.
+[INFO] Starting Phase 0 Verification: Pre-Flight Safety Checks
+[PASS] Backup confirmation verified (Simulated).
+[PASS] Role renaming disabled (Verified via code modification).
+[PASS] Verbose logging enabled.
+[PASS] Database connection successful.
+[INFO] Starting Phase 4 Verification: Dynamic Scope Enforcement
+[PASS] BaseRepository integrated with ScopeResolver
+[PASS] ScopeResolver: Basic resolution works (Tenant)
+[PASS] ScopeResolver: Explicit deny works
+[PASS] ScopeResolver: Missing policy defaults to deny
+[INFO] Starting Phase 5 Verification: Admin Overrides
+[FAIL] RolePermissionController does not accept policy object
+[INFO] Starting Phase 5 Verification: Admin Overrides
+[PASS] RolePermissionController accepts granular policy
+[PASS] RolePermissionService updated with granular logic

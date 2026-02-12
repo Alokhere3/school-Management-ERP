@@ -23,14 +23,22 @@ const RolePermission = sequelize.define('RolePermission', {
             key: 'id'
         }
     },
+    effect: {
+        type: DataTypes.ENUM('allow', 'deny'),
+        defaultValue: 'allow'
+    },
+    scope: {
+        type: DataTypes.ENUM('tenant', 'owned', 'self', 'custom'),
+        defaultValue: 'tenant'
+    },
+    conditions: {
+        type: DataTypes.JSON, // JSONB in Postgres, JSON in MySQL 5.7+
+        allowNull: true
+    },
+    // DEPRECATED: level (kept for backward compatibility during migration if needed, but should not be used)
     level: {
         type: DataTypes.ENUM('none', 'read', 'limited', 'full'),
-        defaultValue: 'none',
-        // Interpretation:
-        // - none: no access
-        // - read: read-only
-        // - limited: constrained to own scope (own students, own classes, etc.)
-        // - full: create, update, delete, read
+        defaultValue: 'none'
     }
 }, {
     tableName: 'role_permissions',

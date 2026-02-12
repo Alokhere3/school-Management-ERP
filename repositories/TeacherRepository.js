@@ -141,7 +141,7 @@ class TeacherRepository extends BaseRepository {
      */
     async findByTeacherId(teacherId, userContext) {
         const context = this.validateUserContext(userContext);
-        
+
         try {
             // Apply RLS filters to the query itself
             const where = this.applyRLSFilters({ teacherId }, context, 'read');
@@ -163,7 +163,7 @@ class TeacherRepository extends BaseRepository {
      */
     async findByUserId(userId, userContext) {
         const context = this.validateUserContext(userContext);
-        
+
         try {
             // Apply RLS filters to the query itself
             const where = this.applyRLSFilters({ userId }, context, 'read');
@@ -196,7 +196,7 @@ class TeacherRepository extends BaseRepository {
      */
     async createTeacher(teacherData, password, userContext, transaction = null) {
         const context = this.validateUserContext(userContext);
-        
+
         // Permission check: Only admins can create teachers
         if (!this.isAdmin(context)) {
             const error = new Error('Insufficient permissions to create teachers');
@@ -251,6 +251,35 @@ class TeacherRepository extends BaseRepository {
                 status: 'active'
             }, { transaction: useTransaction });
 
+            // Assign TEACHER role (roleId is required for new RBAC)
+            const UserRole = require('../models/UserRole');
+            const Role = require('../models/Role');
+            const teacherRole = await Role.findOne({
+                where: {
+                    [Op.or]: [
+                        { code: 'TEACHER', tenantId: context.tenantId },
+                        { code: 'TEACHER', isSystemRole: true },
+                        { name: 'Teacher', tenantId: context.tenantId },
+                        { name: 'Teacher', isSystemRole: true }
+                    ]
+                },
+                transaction: useTransaction
+            });
+
+            if (!teacherRole) {
+                const error = new Error('Teacher role not found. Run RBAC migration/seed to create TEACHER role.');
+                error.status = 500;
+                error.code = 'ROLE_NOT_FOUND';
+                throw error;
+            }
+
+            await UserRole.create({
+                userId: user.id,
+                tenantId: context.tenantId,
+                roleId: teacherRole.id,
+                role: teacherRole.code || teacherRole.name
+            }, { transaction: useTransaction });
+
             // Generate or use provided teacherId
             let finalTeacherId = teacherFields.teacherId;
             if (!finalTeacherId) {
@@ -302,7 +331,7 @@ class TeacherRepository extends BaseRepository {
             if (!transaction) {
                 await useTransaction.rollback();
             }
-            
+
             logger.error(`[TeacherRepository.createTeacher] ❌ Error: ${error.message}`);
             throw error;
         }
@@ -323,8 +352,8 @@ class TeacherRepository extends BaseRepository {
         const context = this.validateUserContext(userContext);
 
         try {
-            // Fetch teacher first to enforce RLS
-            const teacher = await this.findTeacherById(id, userContext);
+            // Fetch teacher first to enforce RLS (use provided transaction if present)
+            const teacher = await this.findTeacherById(id, userContext, { transaction });
             if (!teacher) {
                 const error = new Error('Teacher not found');
                 error.status = 404;
@@ -409,8 +438,8 @@ class TeacherRepository extends BaseRepository {
                 throw error;
             }
 
-            // Fetch teacher with RLS
-            const teacher = await this.findTeacherById(id, userContext);
+            // Fetch teacher with RLS (use provided transaction if present)
+            const teacher = await this.findTeacherById(id, userContext, { transaction });
             if (!teacher) {
                 const error = new Error('Teacher not found');
                 error.status = 404;
@@ -451,13 +480,13 @@ class TeacherRepository extends BaseRepository {
     async countVisibleTeachers(userContext, filters = {}) {
         const context = this.validateUserContext(userContext);
         const tenantFilter = this.buildTenantFilter(context);
-        
+
         try {
             const where = { ...tenantFilter, ...filters };
             const count = await this.model.count({ where });
-            
+
             this.auditLog('count', context, `filters=${JSON.stringify(filters)}`);
-            
+
             return count;
         } catch (error) {
             logger.error(`[TeacherRepository.countVisibleTeachers] Error: ${error.message}`);
@@ -542,7 +571,7 @@ class TeacherRepository extends BaseRepository {
         const context = this.validateUserContext(userContext);
 
         try {
-            const teacher = await this.findTeacherById(id, userContext);
+            const teacher = await this.findTeacherById(id, userContext, { transaction });
             if (!teacher) {
                 const error = new Error('Teacher not found');
                 error.status = 404;
@@ -577,7 +606,7 @@ class TeacherRepository extends BaseRepository {
 
         try {
             logger.info(`[TeacherRepository.deleteOldProfileImage] Deleting old profile image for teacher ${teacherId}`);
-            
+
             // Tenant isolation check: Verify key belongs to correct tenant
             if (!oldProfileImageKey.includes(`tenants/${tenantId}`)) {
                 logger.warn(`[deleteOldProfileImage] Key does not match tenant ${tenantId}: ${oldProfileImageKey}`);
@@ -624,7 +653,7 @@ class TeacherRepository extends BaseRepository {
 
         try {
             logger.info(`[TeacherRepository.deleteOldResume] Deleting old resume for teacher ${teacherId}`);
-            
+
             if (!oldResumeKey.includes(`tenants/${tenantId}`)) {
                 logger.warn(`[deleteOldResume] Key does not match tenant ${tenantId}: ${oldResumeKey}`);
                 return;
@@ -667,7 +696,7 @@ class TeacherRepository extends BaseRepository {
 
         try {
             logger.info(`[TeacherRepository.deleteOldJoiningLetter] Deleting old joining letter for teacher ${teacherId}`);
-            
+
             if (!oldJoiningLetterKey.includes(`tenants/${tenantId}`)) {
                 logger.warn(`[deleteOldJoiningLetter] Key does not match tenant ${tenantId}: ${oldJoiningLetterKey}`);
                 return;
@@ -716,8 +745,8 @@ class TeacherRepository extends BaseRepository {
         try {
             logger.info(`[TeacherRepository.handleProfileImageUpdate] Processing profile image update for teacher ${teacherId}`);
 
-            // Fetch existing teacher with RLS check
-            const teacher = await this.findTeacherById(teacherId, userContext);
+            // Fetch existing teacher with RLS check (use transaction to see uncommitted changes)
+            const teacher = await this.findTeacherById(teacherId, userContext, { transaction });
             if (!teacher) {
                 const error = new Error('Teacher not found');
                 error.status = 404;
@@ -767,7 +796,7 @@ class TeacherRepository extends BaseRepository {
         try {
             logger.info(`[TeacherRepository.handleResumeUpdate] Processing resume update for teacher ${teacherId}`);
 
-            const teacher = await this.findTeacherById(teacherId, userContext);
+            const teacher = await this.findTeacherById(teacherId, userContext, { transaction });
             if (!teacher) {
                 const error = new Error('Teacher not found');
                 error.status = 404;
@@ -815,7 +844,7 @@ class TeacherRepository extends BaseRepository {
         try {
             logger.info(`[TeacherRepository.handleJoiningLetterUpdate] Processing joining letter update for teacher ${teacherId}`);
 
-            const teacher = await this.findTeacherById(teacherId, userContext);
+            const teacher = await this.findTeacherById(teacherId, userContext, { transaction });
             if (!teacher) {
                 const error = new Error('Teacher not found');
                 error.status = 404;

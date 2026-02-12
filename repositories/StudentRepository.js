@@ -12,12 +12,12 @@
  */
 
 const BaseRepository = require('./BaseRepository');
-const PermissionScope = require('../models/PermissionScope');
+// const PermissionScope = require('../models/PermissionScope'); // Removed
 const { Op } = require('sequelize');
 
 class StudentRepository extends BaseRepository {
     constructor(model) {
-        super(model, 'student');
+        super(model, 'students');
     }
 
     /**
@@ -33,14 +33,20 @@ class StudentRepository extends BaseRepository {
         const { role, userId, roles } = userContext;
 
         // For OWNED scope, determine which type of ownership applies
+
+        // Admin Skip: Admins see everything, so Owned filter shouldn't restrict them 
+        // (But typically appliesFiltered is called with scope='owned' only if scope resolution said so)
+        // However, if we are here, we should check if user is admin to avoid filtering by userId
+        const lowerRole = role.toLowerCase();
+        if (['admin', 'super_admin', 'school_admin', 'school_admin_global', 'principal'].includes(lowerRole)) {
+            return where;
+        }
+
         if (roles.some(r => r.toLowerCase().includes('teacher'))) {
             // Teacher: See students in their classes
             if (action !== 'read') {
-                // For updates/deletes, teacher must be the primary educator
                 where.teacherId = userId;
             }
-            // For reads, allow viewing all students in their classes
-            // (controller may further filter by classId)
             return where;
         }
 
@@ -97,33 +103,91 @@ class StudentRepository extends BaseRepository {
         console.log(`\n[DEBUG-STUDENT] createStudent called`);
         console.log(`[DEBUG-STUDENT] transaction:`, transaction ? 'PRESENT' : 'MISSING');
         console.log(`[DEBUG-STUDENT] transaction.id:`, transaction ? transaction.id : 'N/A');
-        
+
         // Validate user can create students
         if (!this.isAdmin(context) && context.role.toLowerCase() !== 'admin') {
             throw new Error('INSUFFICIENT_PERMISSIONS: Only admins can create students');
         }
 
-        // Auto-assign rollNumber if classId is provided
-        if (studentData.classId) {
-            const maxrollNumber = await this.model.max('rollNumber', {
-                where: {
-                    classId: studentData.classId,
-                    tenantId: context.tenantId
-                }
-            });
-            
-            // Start from 1, or next number after highest existing
-            studentData.rollNumber = (maxrollNumber || 0) + 1;
-            console.log(`[ROLE_NUMBER] Auto-assigned rollNumber=${studentData.rollNumber} for classId=${studentData.classId}`);
-        }
+        // Auto-assign admissionNo if not provided
+        let attempts = 0;
+        const maxAttempts = 5;
 
-        // Pass transaction to createWithRLS if provided
-        const options = transaction ? { transaction } : {};
-        console.log(`[DEBUG-STUDENT] Calling createWithRLS with options:`, { transaction: options.transaction ? 'PRESENT' : 'MISSING' });
-        const result = await this.createWithRLS(studentData, userContext, options);
-        console.log(`[DEBUG-STUDENT] createWithRLS returned, student ID:`, result.id);
-        console.log(`[DEBUG-STUDENT] createStudent completed\n`);
-        return result;
+        while (attempts < maxAttempts) {
+            try {
+                if (!studentData.admissionNo) {
+                    // Efficiently find the maximum numeric admissionNo
+                    // Pass transaction to ensure we see relevant data if already modified in this txn
+                    const allStudents = await this.model.findAll({
+                        where: {
+                            tenantId: context.tenantId,
+                            admissionNo: { [Op.not]: [null, ''] }
+                        },
+                        attributes: ['admissionNo'],
+                        raw: true,
+                        transaction // Pass the transaction object
+                    });
+
+                    let maxAdmissionNo = 0;
+                    if (allStudents.length > 0) {
+                        // Determine max manually in JS to handle string-number sorting correctly
+                        allStudents.forEach(s => {
+                            const num = parseInt(s.admissionNo, 10);
+                            if (!isNaN(num) && num > maxAdmissionNo) {
+                                maxAdmissionNo = num;
+                            }
+                        });
+                    }
+
+                    // Start from 1
+                    // If this is a retry (attempts > 0), increment based on previous failure or re-calculation
+                    const nextAdmissionNumber = maxAdmissionNo + 1 + attempts;
+
+                    studentData.admissionNo = String(nextAdmissionNumber);
+                    console.log(`[ADMISSION_NO] Auto-assigned admissionNo=${studentData.admissionNo} for tenantId=${context.tenantId}. Max found: ${maxAdmissionNo}. Attempt: ${attempts + 1}`);
+                }
+
+                // Auto-assign rollNumber if classId is provided (only do this once or re-calc if needed)
+                if (studentData.classId && !studentData.rollNumber) {
+                    const maxrollNumber = await this.model.max('rollNumber', {
+                        where: {
+                            classId: studentData.classId,
+                            tenantId: context.tenantId,
+                            rollNumber: { [Op.not]: null }
+                        },
+                        transaction
+                    });
+                    studentData.rollNumber = (maxrollNumber || 0) + 1;
+                    console.log(`[ROLE_NUMBER] Auto-assigned rollNumber=${studentData.rollNumber} for classId=${studentData.classId}`);
+                } else if (!studentData.classId) {
+                    // If no classId provided, rollNumber should remain null
+                    console.log(`[ROLE_NUMBER] No classId provided, rollNumber will be null`);
+                }
+
+                // Pass transaction to createWithRLS
+                const options = transaction ? { transaction } : {};
+                console.log(`[DEBUG-STUDENT] Calling createWithRLS with options:`, { transaction: options.transaction ? 'PRESENT' : 'MISSING' });
+                const result = await this.createWithRLS(studentData, userContext, options);
+                console.log(`[DEBUG-STUDENT] createWithRLS returned, student ID:`, result.id);
+                console.log(`[DEBUG-STUDENT] createStudent completed successfully\n`);
+                return result;
+
+            } catch (err) {
+                // Check if it's a unique constraint error specifically on admissionNo
+                const isUniqueError = err.name === 'SequelizeUniqueConstraintError';
+                const isAdmissionError = isUniqueError && err.errors && err.errors.some(e => e.path === 'admissionNo' || e.message.includes('compositeIndex'));
+
+                if (isAdmissionError) {
+                    attempts++;
+                    console.warn(`[CREATE_RETRY] Duplicate admissionNo detected. Retrying... (Attempt ${attempts}/${maxAttempts})`);
+                    // Reset admissionNo to trigger re-calculation in next loop
+                    studentData.admissionNo = null;
+                    if (attempts >= maxAttempts) throw err;
+                } else {
+                    throw err;
+                }
+            }
+        }
     }
 
     /**
@@ -137,7 +201,7 @@ class StudentRepository extends BaseRepository {
      */
     async updateStudent(studentId, updateData, userContext, transaction = null) {
         const context = this.validateUserContext(userContext);
-        
+
         // Check if user can update this student
         // Pass transaction to findStudentById to maintain transaction context
         const findOptions = transaction ? { transaction } : {};
@@ -161,7 +225,7 @@ class StudentRepository extends BaseRepository {
      */
     async deleteStudent(studentId, userContext, transaction = null) {
         const context = this.validateUserContext(userContext);
-        
+
         if (!this.isAdmin(context)) {
             throw new Error('INSUFFICIENT_PERMISSIONS: Only admins can delete students');
         }
@@ -201,7 +265,7 @@ class StudentRepository extends BaseRepository {
      */
     async findStudentsByParent(parentId, userContext, options = {}) {
         const context = this.validateUserContext(userContext);
-        
+
         // Only parents or admins can view a parent's students
         if (context.userId !== parentId && !this.isAdmin(context)) {
             throw new Error('INSUFFICIENT_PERMISSIONS: Cannot view other users\' children');
@@ -220,7 +284,7 @@ class StudentRepository extends BaseRepository {
      */
     async findStudentsByTeacher(teacherId, userContext, options = {}) {
         const context = this.validateUserContext(userContext);
-        
+
         // Only teachers viewing their own class or admins
         if (context.userId !== teacherId && !this.isAdmin(context)) {
             throw new Error('INSUFFICIENT_PERMISSIONS: Cannot view other teachers\' students');
@@ -347,7 +411,7 @@ class StudentRepository extends BaseRepository {
         const StudentSiblingRepository = require('./StudentSiblingRepository');
         const StudentSibling = require('../models/StudentSibling');
         const siblingRepo = new StudentSiblingRepository(StudentSibling);
-        
+
         await siblingRepo.removeSiblingsForStudent(studentId, userContext, transaction);
 
         // Delete the student record

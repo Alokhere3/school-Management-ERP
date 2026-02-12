@@ -44,6 +44,7 @@ const MODULES = [
     'tenant_management',
     'school_config',
     'user_management',
+    'classes',
     'students',
     'admissions',
     'fees',
@@ -95,6 +96,7 @@ const DEFAULT_TENANT_ROLES = [
 const ACCESS_MATRIX = {
     'School Admin': {
         tenant_management: 'limited', school_config: 'full', user_management: 'full',
+        classes: 'full',
         students: 'full', admissions: 'full', fees: 'full', attendance_students: 'full',
         attendance_staff: 'full', timetable: 'full', exams: 'full', communication: 'full',
         transport: 'full', library: 'full', hostel: 'full', hr_payroll: 'full',
@@ -103,6 +105,7 @@ const ACCESS_MATRIX = {
     },
     'Principal': {
         tenant_management: 'none', school_config: 'read', user_management: 'limited',
+        classes: 'full',
         students: 'full', admissions: 'full', fees: 'read', attendance_students: 'full',
         attendance_staff: 'read', timetable: 'full', exams: 'full', communication: 'full',
         transport: 'read', library: 'read', hostel: 'read', hr_payroll: 'read',
@@ -111,6 +114,7 @@ const ACCESS_MATRIX = {
     },
     'Teacher': {
         tenant_management: 'none', school_config: 'read', user_management: 'none',
+        classes: 'read',
         students: 'limited', admissions: 'none', fees: 'read', attendance_students: 'full',
         attendance_staff: 'none', timetable: 'read', exams: 'limited', communication: 'limited',
         transport: 'read', library: 'read', hostel: 'none', hr_payroll: 'read',
@@ -119,6 +123,7 @@ const ACCESS_MATRIX = {
     },
     'Accountant': {
         tenant_management: 'read', school_config: 'read', user_management: 'limited',
+        classes: 'read',
         students: 'read', admissions: 'read', fees: 'full', attendance_students: 'read',
         attendance_staff: 'read', timetable: 'none', exams: 'none', communication: 'limited',
         transport: 'read', library: 'none', hostel: 'read', hr_payroll: 'full',
@@ -127,6 +132,7 @@ const ACCESS_MATRIX = {
     },
     'HR Manager': {
         tenant_management: 'none', school_config: 'read', user_management: 'limited',
+        classes: 'none',
         students: 'none', admissions: 'none', fees: 'read', attendance_students: 'read',
         attendance_staff: 'full', timetable: 'none', exams: 'none', communication: 'limited',
         transport: 'none', library: 'none', hostel: 'none', hr_payroll: 'full',
@@ -135,6 +141,7 @@ const ACCESS_MATRIX = {
     },
     'Librarian': {
         tenant_management: 'none', school_config: 'read', user_management: 'none',
+        classes: 'none',
         students: 'limited', admissions: 'none', fees: 'read', attendance_students: 'none',
         attendance_staff: 'none', timetable: 'none', exams: 'read', communication: 'limited',
         transport: 'none', library: 'full', hostel: 'none', hr_payroll: 'none',
@@ -143,6 +150,7 @@ const ACCESS_MATRIX = {
     },
     'Transport Manager': {
         tenant_management: 'none', school_config: 'read', user_management: 'none',
+        classes: 'read',
         students: 'limited', admissions: 'none', fees: 'read', attendance_students: 'limited',
         attendance_staff: 'limited', timetable: 'none', exams: 'none', communication: 'limited',
         transport: 'full', library: 'none', hostel: 'none', hr_payroll: 'none',
@@ -151,6 +159,7 @@ const ACCESS_MATRIX = {
     },
     'Hostel Warden': {
         tenant_management: 'none', school_config: 'read', user_management: 'none',
+        classes: 'read',
         students: 'limited', admissions: 'none', fees: 'read', attendance_students: 'limited',
         attendance_staff: 'none', timetable: 'none', exams: 'none', communication: 'limited',
         transport: 'none', library: 'none', hostel: 'full', hr_payroll: 'none',
@@ -159,6 +168,7 @@ const ACCESS_MATRIX = {
     },
     'Parent': {
         tenant_management: 'none', school_config: 'none', user_management: 'none',
+        classes: 'read',
         students: 'limited', admissions: 'limited', fees: 'limited', attendance_students: 'limited',
         attendance_staff: 'none', timetable: 'read', exams: 'read', communication: 'limited',
         transport: 'read', library: 'read', hostel: 'read', hr_payroll: 'none',
@@ -167,6 +177,7 @@ const ACCESS_MATRIX = {
     },
     'Student': {
         tenant_management: 'none', school_config: 'none', user_management: 'none',
+        classes: 'read',
         students: 'limited', admissions: 'limited', fees: 'limited', attendance_students: 'limited',
         attendance_staff: 'none', timetable: 'read', exams: 'read', communication: 'limited',
         transport: 'read', library: 'read', hostel: 'read', hr_payroll: 'none',

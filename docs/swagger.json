@@ -14,7 +14,7 @@
       "description": "Development server"
     },
     {
-      "url": "https://school-management-erp-1dht.onrender.com",
+      "url": "https://api.yourschool.com",
       "description": "Production server"
     }
   ],
@@ -54,261 +54,6 @@
             "items": {
               "type": "object"
             }
-          }
-        }
-      },
-      "StudentSibling": {
-        "type": "object",
-        "description": "Sibling student information (nested within Student)",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Sibling student ID"
-          },
-          "firstName": {
-            "type": "string",
-            "description": "Sibling's first name"
-          },
-          "lastName": {
-            "type": "string",
-            "description": "Sibling's last name"
-          },
-          "admissionNo": {
-            "type": "string",
-            "description": "Sibling's admission number"
-          },
-          "photoUrl": {
-            "type": "string",
-            "description": "Sibling's photo URL"
-          },
-          "classId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Sibling's class ID"
-          },
-          "rollNumber": {
-            "type": "integer",
-            "description": "Sibling's roll number in class"
-          },
-          "classData": {
-            "type": "object",
-            "description": "Sibling's denormalized class information"
-          }
-        }
-      },
-      "Student": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "admissionNo": {
-            "type": "string"
-          },
-          "firstName": {
-            "type": "string"
-          },
-          "lastName": {
-            "type": "string"
-          },
-          "dateOfBirth": {
-            "type": "string",
-            "format": "date"
-          },
-          "classId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Class ID"
-          },
-          "photoUrl": {
-            "type": "string"
-          },
-          "session": {
-            "type": "string"
-          },
-          "admissionClass": {
-            "type": "string"
-          },
-          "stream": {
-            "type": "string"
-          },
-          "admissionType": {
-            "type": "string",
-            "enum": ["New", "Transfer"]
-          },
-          "previousSchoolName": {
-            "type": "string"
-          },
-          "previousSchoolBoard": {
-            "type": "string"
-          },
-          "previousClassAttended": {
-            "type": "string"
-          },
-          "previousResult": {
-            "type": "string"
-          },
-          "studentName": {
-            "type": "string"
-          },
-          "gender": {
-            "type": "string",
-            "enum": ["Male", "Female", "Other"]
-          },
-          "placeOfBirth": {
-            "type": "string"
-          },
-          "motherTongue": {
-            "type": "string"
-          },
-          "nationality": {
-            "type": "string"
-          },
-          "category": {
-            "type": "string",
-            "enum": ["General", "OBC", "SC", "ST", "Other"]
-          },
-          "religion": {
-            "type": "string"
-          },
-          "aadharNumber": {
-            "type": "string"
-          },
-          "currentAddressLine1": {
-            "type": "string"
-          },
-          "currentAddressLine2": {
-            "type": "string"
-          },
-          "currentCity": {
-            "type": "string"
-          },
-          "currentDistrict": {
-            "type": "string"
-          },
-          "currentState": {
-            "type": "string"
-          },
-          "currentPIN": {
-            "type": "string"
-          },
-          "permanentAddressLine1": {
-            "type": "string"
-          },
-          "permanentAddressLine2": {
-            "type": "string"
-          },
-          "permanentCity": {
-            "type": "string"
-          },
-          "permanentDistrict": {
-            "type": "string"
-          },
-          "permanentState": {
-            "type": "string"
-          },
-          "permanentPIN": {
-            "type": "string"
-          },
-          "studentMobile": {
-            "type": "string"
-          },
-          "studentEmail": {
-            "type": "string",
-            "format": "email"
-          },
-          "fatherName": {
-            "type": "string"
-          },
-          "fatherPhone": {
-            "type": "string"
-          },
-          "fatherOccupation": {
-            "type": "string"
-          },
-          "fatherEmail": {
-            "type": "string",
-            "format": "email"
-          },
-          "motherName": {
-            "type": "string"
-          },
-          "motherPhone": {
-            "type": "string"
-          },
-          "motherOccupation": {
-            "type": "string"
-          },
-          "motherEmail": {
-            "type": "string",
-            "format": "email"
-          },
-          "guardianName": {
-            "type": "string"
-          },
-          "guardianPhone": {
-            "type": "string"
-          },
-          "guardianRelation": {
-            "type": "string"
-          },
-          "emergencyContact": {
-            "type": "string"
-          },
-          "emergencyContactPhone": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": ["active", "inactive"]
-          },
-          "siblings": {
-            "type": "array",
-            "description": "Array of sibling students linked to this student (only in GET responses)",
-            "items": {
-              "$ref": "#/components/schemas/StudentSibling"
-            }
-          },
-          "contacts": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "enum": ["Father", "Mother", "Guardian", "Emergency", "Student"]
-                },
-                "name": {
-                  "type": "string"
-                },
-                "phone": {
-                  "type": "string"
-                },
-                "email": {
-                  "type": "string"
-                },
-                "occupation": {
-                  "type": "string"
-                },
-                "relation": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time"
           }
         }
       },
@@ -451,6 +196,60 @@
         "required": [
           "name"
         ]
+      },
+      "UserRole": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isSystemRole": {
+            "type": "boolean"
+          },
+          "roleId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "suspended"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserRole"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     }
   },
@@ -716,143 +515,49 @@
           "Auth"
         ],
         "summary": "Register tenant and admin",
-        "description": "Create a new tenant with an admin user. If roles parameter is provided, authentication is required and user must have 'create' permission on 'roles' resource.",
+        "description": "Register a new tenant and create the initial admin user.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "tenantName",
+                  "tenantType",
+                  "adminName",
+                  "adminEmail",
+                  "password"
+                ],
                 "properties": {
-                  "name": {
-                    "type": "string",
-                    "description": "Tenant name"
+                  "tenantName": {
+                    "type": "string"
                   },
-                  "email": {
+                  "tenantType": {
                     "type": "string",
-                    "description": "Admin user email"
+                    "enum": [
+                      "School",
+                      "Institute",
+                      "University"
+                    ]
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "contactNumber": {
+                    "type": "string"
+                  },
+                  "adminName": {
+                    "type": "string"
+                  },
+                  "adminEmail": {
+                    "type": "string",
+                    "format": "email"
                   },
                   "password": {
                     "type": "string",
-                    "description": "Admin user password (min 6 characters)"
-                  },
-                  "roles": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "Array of role names to assign to the admin user (e.g., [\"Super Admin\"], [\"School Admin\", \"Principal\"]). Requires authentication and 'create' permission on 'roles' resource.",
-                    "example": [
-                      "School Admin"
-                    ]
+                    "format": "password"
                   }
-                },
-                "required": [
-                  "name",
-                  "email",
-                  "password"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "token": {
-                      "type": "string"
-                    },
-                    "tenant": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "name": {
-                          "type": "string"
-                        }
-                      }
-                    },
-                    "tenantId": {
-                      "type": "string",
-                      "description": "Tenant id of the newly created tenant (top-level for convenience)"
-                    },
-                    "user": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string"
-                        },
-                        "email": {
-                          "type": "string"
-                        },
-                        "tenantId": {
-                          "type": "string"
-                        },
-                        "role": {
-                          "type": "string"
-                        },
-                        "allowedAccess": {
-                          "type": "object"
-                        }
-                      }
-                    },
-                    "roles": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Role"
-                      },
-                      "description": "Assigned roles for the admin user, or available roles if no roles were assigned"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - authentication required when assigning roles",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - user lacks permission to assign roles",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Conflict - duplicate value (e.g. email already registered)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -866,7 +571,7 @@
           "Auth"
         ],
         "summary": "Login user",
-        "description": "Authenticates user and sets secure HTTP-only cookies (accessToken and refreshToken). Also returns token in response body for backward compatibility.",
+        "description": "Authenticate user and receive tokens.",
         "requestBody": {
           "required": true,
           "content": {
@@ -880,13 +585,209 @@
                 "properties": {
                   "email": {
                     "type": "string",
-                    "format": "email",
-                    "example": "admin@school.com"
+                    "format": "email"
                   },
                   "password": {
                     "type": "string",
-                    "format": "password",
-                    "minLength": 8
+                    "format": "password"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Reset password",
+        "description": "Reset password using a temporary token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token",
+                  "newPassword"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "format": "password"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/classes": {
+      "get": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "List classes for the tenant",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Create a class (Admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "className"
+                ],
+                "properties": {
+                  "className": {
+                    "type": "string"
+                  },
+                  "section": {
+                    "type": "string"
+                  },
+                  "noOfStudents": {
+                    "type": "integer"
+                  },
+                  "noOfSubjects": {
+                    "type": "integer"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "inactive"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/api/classes/{id}": {
+      "get": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Get class by id",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Classes"
+        ],
+        "summary": "Update class (Admin only)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "className": {
+                    "type": "string"
+                  },
+                  "section": {
+                    "type": "string"
+                  },
+                  "noOfStudents": {
+                    "type": "integer"
+                  },
+                  "noOfSubjects": {
+                    "type": "integer"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "inactive"
+                    ]
                   }
                 }
               }
@@ -895,332 +796,39 @@
         },
         "responses": {
           "200": {
-            "description": "Login successful. Cookies are set automatically.",
-            "headers": {
-              "Set-Cookie": {
-                "description": "HTTP-only cookies containing access and refresh tokens",
-                "schema": {
-                  "type": "string",
-                  "example": "accessToken=...; HttpOnly; Secure; SameSite=none"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "token": {
-                      "type": "string",
-                      "description": "Access token (also in cookie). Prefer using cookie."
-                    },
-                    "tenantId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "user": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "email": {
-                          "type": "string",
-                          "format": "email"
-                        },
-                        "tenantId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "role": {
-                          "type": "string"
-                        },
-                        "allowedAccess": {
-                          "type": "object"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Updated"
           },
-          "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid credentials",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+          "404": {
+            "description": "Not found"
           }
         }
-      }
-    },
-    "/api/auth/profile": {
-      "get": {
+      },
+      "delete": {
         "tags": [
-          "Auth"
+          "Classes"
         ],
-        "summary": "Get current user profile",
-        "description": "Returns the authenticated user's profile with roles and allowed access permissions",
+        "summary": "Delete class (Admin only)",
         "security": [
           {
             "bearerAuth": []
-          },
-          {
-            "cookieAuth": []
           }
         ],
-        "responses": {
-          "200": {
-            "description": "User profile retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "email": {
-                          "type": "string",
-                          "format": "email"
-                        },
-                        "tenantId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "role": {
-                          "type": "string"
-                        },
-                        "allowedAccess": {
-                          "type": "object",
-                          "description": "RBAC permissions map"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/available-roles": {
-      "get": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Get roles the authenticated user can create/manage",
-        "description": "Returns role templates the current user may assign when creating users for a tenant. Uses RBAC permissions to determine capability.",
         "parameters": [
           {
-            "in": "query",
-            "name": "tenantId",
+            "in": "path",
+            "name": "id",
+            "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Optional tenant ID to consider (defaults to user's tenant)"
-          }
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "cookieAuth": []
+              "type": "string"
+            }
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Role"
-                      }
-                    }
-                  }
-                }
-              }
-            }
+          "204": {
+            "description": "Deleted"
           },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "403": {
-            "description": "Forbidden"
-          }
-        }
-      }
-    },
-    "/api/auth/refresh": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Refresh access token",
-        "description": "Uses refresh token from HTTP-only cookie to generate a new access token. Optionally rotates refresh token for enhanced security.",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "New access token generated and set in cookie",
-            "headers": {
-              "Set-Cookie": {
-                "description": "New access token cookie (and optionally new refresh token)",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "token": {
-                      "type": "string",
-                      "description": "New access token (also in cookie)"
-                    },
-                    "user": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "email": {
-                          "type": "string"
-                        },
-                        "tenantId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "role": {
-                          "type": "string"
-                        },
-                        "allowedAccess": {
-                          "type": "object"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Invalid or expired refresh token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse",
-                  "example": {
-                    "success": false,
-                    "error": "Refresh token expired. Please login again.",
-                    "code": "REFRESH_TOKEN_EXPIRED"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/logout": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Logout user",
-        "description": "Clears authentication cookies (accessToken and refreshToken) and invalidates session. Works with both cookie and bearer token authentication.",
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "cookieAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successfully logged out. Cookies are cleared.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "Successfully logged out"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+          "404": {
+            "description": "Not found"
           }
         }
       }
@@ -1879,6 +1487,278 @@
         }
       }
     },
+    "/api/v1/tenants/{tenantId}/staff": {
+      "post": {
+        "tags": [
+          "Onboarding"
+        ],
+        "summary": "Create staff member with optional portal access",
+        "description": "Creates a staff member and optionally creates a User account with temporary password for portal access.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "firstName",
+                  "lastName"
+                ],
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "designation": {
+                    "type": "string"
+                  },
+                  "department": {
+                    "type": "string"
+                  },
+                  "employeeType": {
+                    "type": "string"
+                  },
+                  "enablePortalAccess": {
+                    "type": "boolean",
+                    "description": "If true, creates User account with temporary password"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "TEACHER",
+                      "STAFF",
+                      "ACCOUNTANT",
+                      "LIBRARIAN",
+                      "ADMIN"
+                    ],
+                    "description": "Role to assign if portal access is enabled"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Staff created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "staff": {
+                          "$ref": "#/components/schemas/Staff"
+                        },
+                        "credentials": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "email": {
+                              "type": "string"
+                            },
+                            "tempPassword": {
+                              "type": "string"
+                            },
+                            "mustChangePassword": {
+                              "type": "boolean"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Email already exists"
+          }
+        }
+      }
+    },
+    "/api/v1/tenants/{tenantId}/admissions/create-with-users": {
+      "post": {
+        "tags": [
+          "Onboarding"
+        ],
+        "summary": "Create student with parents and optional user accounts",
+        "description": "Creates a student record, parent records, and optionally creates User accounts for student and parents with temporary passwords.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenantId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "student"
+                ],
+                "properties": {
+                  "student": {
+                    "type": "object",
+                    "description": "Student data (all Student model fields)"
+                  },
+                  "createStudentUser": {
+                    "type": "boolean",
+                    "description": "If true, creates User account for student"
+                  },
+                  "parents": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "phone": {
+                          "type": "string"
+                        },
+                        "relation": {
+                          "type": "string",
+                          "enum": [
+                            "Father",
+                            "Mother",
+                            "Guardian",
+                            "Grandparent",
+                            "Other"
+                          ]
+                        },
+                        "createUser": {
+                          "type": "boolean"
+                        },
+                        "isPrimary": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Student and parents created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "student": {
+                          "$ref": "#/components/schemas/Student"
+                        },
+                        "credentials": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "STUDENT",
+                                  "PARENT"
+                                ]
+                              },
+                              "email": {
+                                "type": "string"
+                              },
+                              "tempPassword": {
+                                "type": "string"
+                              },
+                              "method": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
     "/api/roles": {
       "get": {
         "tags": [
@@ -1892,6 +1772,54 @@
           }
         ],
         "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            },
+            "description": "Number of items per page"
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search by name or description"
+          },
+          {
+            "in": "query",
+            "name": "sortBy",
+            "schema": {
+              "type": "string",
+              "default": "name"
+            },
+            "description": "Field to sort by"
+          },
+          {
+            "in": "query",
+            "name": "sortOrder",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ASC",
+                "DESC"
+              ],
+              "default": "ASC"
+            },
+            "description": "Sort order"
+          },
           {
             "in": "query",
             "name": "tenantId",
@@ -2166,6 +2094,384 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/roles/{id}/permissions": {
+      "get": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Get role permissions",
+        "description": "Get all permissions for a specific role, grouped by module",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Role not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Update role permissions (bulk)",
+        "description": "Update multiple permissions for a role at once",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "permissions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "module": {
+                          "type": "string"
+                        },
+                        "actions": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "read",
+                              "limited",
+                              "full"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Role not found"
+          }
+        }
+      }
+    },
+    "/api/roles/{id}/permissions/{module}": {
+      "put": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Update all permissions for a module",
+        "description": "Update all permissions (create, read, update, delete, export) for a specific module",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "path",
+            "name": "module",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "actions": {
+                    "type": "object",
+                    "properties": {
+                      "create": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "read",
+                          "limited",
+                          "full"
+                        ]
+                      },
+                      "read": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "read",
+                          "limited",
+                          "full"
+                        ]
+                      },
+                      "update": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "read",
+                          "limited",
+                          "full"
+                        ]
+                      },
+                      "delete": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "read",
+                          "limited",
+                          "full"
+                        ]
+                      },
+                      "export": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "read",
+                          "limited",
+                          "full"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Role or module not found"
+          }
+        }
+      }
+    },
+    "/api/roles/{id}/permissions/{module}/allow-all": {
+      "put": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Set AllowAll for a module",
+        "description": "Grant full access to all actions for a specific module (equivalent to checking \"AllowAll\" checkbox)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "path",
+            "name": "module",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "allowAll": {
+                    "type": "boolean",
+                    "description": "true to grant full access, false to remove all permissions"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Role or module not found"
+          }
+        }
+      }
+    },
+    "/api/roles/{id}/permissions/{module}/{action}": {
+      "put": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "Update a single permission",
+        "description": "Update a specific permission (module + action) for a role",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "path",
+            "name": "module",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "create",
+                "read",
+                "update",
+                "delete",
+                "export"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "level": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "read",
+                      "limited",
+                      "full"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Role, module, or action not found"
           }
         }
       }
@@ -2451,7 +2757,7 @@
           "Students"
         ],
         "summary": "List students",
-        "description": "Get paginated list of students with all their information",
+        "description": "Retrieve all students with optional filtering by classId. Use classId query parameter to filter students by class.",
         "security": [
           {
             "bearerAuth": []
@@ -2462,89 +2768,33 @@
             "in": "query",
             "name": "page",
             "schema": {
-              "type": "integer",
-              "default": 1
+              "type": "integer"
             },
-            "description": "Page number"
+            "description": "Page number for pagination (default 1)"
           },
           {
             "in": "query",
             "name": "limit",
             "schema": {
-              "type": "integer",
-              "default": 20,
-              "maximum": 100
+              "type": "integer"
             },
-            "description": "Number of items per page"
+            "description": "Records per page (default 20)"
           },
           {
             "in": "query",
             "name": "classId",
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
-            "description": "Filter students by class ID (optional)"
+            "description": "Optional - Filter students by class ID"
           }
         ],
         "responses": {
           "200": {
-            "description": "List of students retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Student"
-                      }
-                    },
-                    "pagination": {
-                      "type": "object",
-                      "properties": {
-                        "total": {
-                          "type": "integer",
-                          "description": "Total number of students"
-                        },
-                        "pages": {
-                          "type": "integer",
-                          "description": "Total number of pages"
-                        },
-                        "current": {
-                          "type": "integer",
-                          "description": "Current page number"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "OK - List of students"
           },
           "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Unauthorized"
           }
         }
       },
@@ -2552,8 +2802,8 @@
         "tags": [
           "Students"
         ],
-        "summary": "Create student with all fields and optional siblings",
-        "description": "Create a new student with all personal, academic, contact, and family information in a single request. Optionally link siblings via siblingIds array. All sibling relationships are created bi-directionally in a single atomic transaction.",
+        "summary": "Create student with all fields",
+        "description": "Create a new student with all personal, academic, contact, and family information in a single request. Admission number is auto-generated per school.",
         "security": [
           {
             "bearerAuth": []
@@ -2566,225 +2816,172 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "admissionNo",
                   "firstName",
-                  "dateOfBirth",
-                  "classId"
+                  "dateOfBirth"
                 ],
                 "properties": {
                   "admissionNo": {
                     "type": "string",
-                    "description": "Unique admission number"
+                    "description": "Auto-generated if not provided"
                   },
                   "firstName": {
-                    "type": "string",
-                    "description": "Student's first name"
+                    "type": "string"
                   },
                   "lastName": {
-                    "type": "string",
-                    "description": "Student's last name"
+                    "type": "string"
                   },
                   "dateOfBirth": {
                     "type": "string",
-                    "format": "date",
-                    "description": "Date of birth (YYYY-MM-DD)"
-                  },
-                  "classId": {
-                    "type": "string",
-                    "format": "uuid",
-                    "description": "Class ID (required)"
+                    "format": "date"
                   },
                   "photo": {
                     "type": "string",
-                    "format": "binary",
-                    "description": "Student photo image file"
+                    "format": "binary"
                   },
                   "session": {
-                    "type": "string",
-                    "description": "Academic session/year"
+                    "type": "string"
                   },
                   "admissionClass": {
-                    "type": "string",
-                    "description": "Class applying for"
+                    "type": "string"
                   },
                   "stream": {
-                    "type": "string",
-                    "description": "Stream/subjects (for higher classes)"
+                    "type": "string"
                   },
                   "admissionType": {
                     "type": "string",
-                    "enum": ["New", "Transfer"],
-                    "description": "Type of admission"
+                    "enum": [
+                      "New",
+                      "Transfer"
+                    ]
                   },
                   "previousSchoolName": {
-                    "type": "string",
-                    "description": "Previous school name (for transfers)"
+                    "type": "string"
                   },
                   "previousSchoolBoard": {
-                    "type": "string",
-                    "description": "Previous school board"
+                    "type": "string"
                   },
                   "previousClassAttended": {
-                    "type": "string",
-                    "description": "Last class attended"
+                    "type": "string"
                   },
                   "previousResult": {
-                    "type": "string",
-                    "description": "Last result/percentage"
+                    "type": "string"
                   },
                   "studentName": {
-                    "type": "string",
-                    "description": "Full name as per birth certificate"
+                    "type": "string"
                   },
                   "gender": {
                     "type": "string",
-                    "enum": ["Male", "Female", "Other"],
-                    "description": "Gender"
+                    "enum": [
+                      "Male",
+                      "Female",
+                      "Other"
+                    ]
                   },
                   "placeOfBirth": {
-                    "type": "string",
-                    "description": "Place of birth"
+                    "type": "string"
                   },
                   "motherTongue": {
-                    "type": "string",
-                    "description": "Mother tongue"
+                    "type": "string"
                   },
                   "nationality": {
-                    "type": "string",
-                    "description": "Nationality"
+                    "type": "string"
                   },
                   "category": {
                     "type": "string",
-                    "enum": ["General", "OBC", "SC", "ST", "Other"],
-                    "description": "Category/caste"
+                    "enum": [
+                      "General",
+                      "OBC",
+                      "SC",
+                      "ST",
+                      "Other"
+                    ]
                   },
                   "religion": {
-                    "type": "string",
-                    "description": "Religion (optional)"
+                    "type": "string"
                   },
                   "aadharNumber": {
-                    "type": "string",
-                    "description": "Aadhar number (optional)"
+                    "type": "string"
                   },
                   "currentAddressLine1": {
-                    "type": "string",
-                    "description": "Current address line 1"
+                    "type": "string"
                   },
                   "currentAddressLine2": {
-                    "type": "string",
-                    "description": "Current address line 2"
+                    "type": "string"
                   },
                   "currentCity": {
-                    "type": "string",
-                    "description": "Current city"
+                    "type": "string"
                   },
                   "currentDistrict": {
-                    "type": "string",
-                    "description": "Current district"
+                    "type": "string"
                   },
                   "currentState": {
-                    "type": "string",
-                    "description": "Current state"
+                    "type": "string"
                   },
                   "currentPIN": {
-                    "type": "string",
-                    "description": "Current PIN code"
+                    "type": "string"
                   },
                   "permanentAddressLine1": {
-                    "type": "string",
-                    "description": "Permanent address line 1"
+                    "type": "string"
                   },
                   "permanentAddressLine2": {
-                    "type": "string",
-                    "description": "Permanent address line 2"
+                    "type": "string"
                   },
                   "permanentCity": {
-                    "type": "string",
-                    "description": "Permanent city"
+                    "type": "string"
                   },
                   "permanentDistrict": {
-                    "type": "string",
-                    "description": "Permanent district"
+                    "type": "string"
                   },
                   "permanentState": {
-                    "type": "string",
-                    "description": "Permanent state"
+                    "type": "string"
                   },
                   "permanentPIN": {
-                    "type": "string",
-                    "description": "Permanent PIN code"
+                    "type": "string"
                   },
                   "studentMobile": {
-                    "type": "string",
-                    "description": "Student mobile number"
+                    "type": "string"
                   },
                   "studentEmail": {
-                    "type": "string",
-                    "format": "email",
-                    "description": "Student email address"
+                    "type": "string"
                   },
                   "fatherName": {
-                    "type": "string",
-                    "description": "Father's name"
+                    "type": "string"
                   },
                   "fatherPhone": {
-                    "type": "string",
-                    "description": "Father's phone number"
+                    "type": "string"
                   },
                   "fatherOccupation": {
-                    "type": "string",
-                    "description": "Father's occupation"
+                    "type": "string"
                   },
                   "fatherEmail": {
-                    "type": "string",
-                    "format": "email",
-                    "description": "Father's email"
+                    "type": "string"
                   },
                   "motherName": {
-                    "type": "string",
-                    "description": "Mother's name"
+                    "type": "string"
                   },
                   "motherPhone": {
-                    "type": "string",
-                    "description": "Mother's phone number"
+                    "type": "string"
                   },
                   "motherOccupation": {
-                    "type": "string",
-                    "description": "Mother's occupation"
+                    "type": "string"
                   },
                   "motherEmail": {
-                    "type": "string",
-                    "format": "email",
-                    "description": "Mother's email"
+                    "type": "string"
                   },
                   "guardianName": {
-                    "type": "string",
-                    "description": "Guardian name (if different from parents)"
+                    "type": "string"
                   },
                   "guardianPhone": {
-                    "type": "string",
-                    "description": "Guardian phone number"
+                    "type": "string"
                   },
                   "guardianRelation": {
-                    "type": "string",
-                    "description": "Relation to student"
+                    "type": "string"
                   },
                   "emergencyContact": {
-                    "type": "string",
-                    "description": "Emergency contact person name"
+                    "type": "string"
                   },
                   "emergencyContactPhone": {
-                    "type": "string",
-                    "description": "Emergency contact phone number"
-                  },
-                  "siblingIds": {
-                    "type": "array",
-                    "description": "Array of sibling student IDs to link (optional). Each ID must belong to the same tenant and school.",
-                    "items": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "example": ["sibling-uuid-1", "sibling-uuid-2"]
+                    "type": "string"
                   }
                 }
               }
@@ -2793,42 +2990,13 @@
         },
         "responses": {
           "201": {
-            "description": "Student created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "data": {
-                      "$ref": "#/components/schemas/Student"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Student created successfully"
           },
           "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Validation error"
           },
           "403": {
-            "description": "Forbidden - insufficient permissions",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Forbidden"
           }
         }
       }
@@ -2839,7 +3007,7 @@
           "Students"
         ],
         "summary": "Get all students in a class",
-        "description": "Retrieve all students belonging to a specific class ID with pagination support",
+        "description": "Retrieve all students belonging to a specific class ID",
         "security": [
           {
             "bearerAuth": []
@@ -2851,8 +3019,7 @@
             "name": "classId",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             },
             "description": "Class ID to filter students"
           },
@@ -2860,94 +3027,28 @@
             "in": "query",
             "name": "page",
             "schema": {
-              "type": "integer",
-              "default": 1
+              "type": "integer"
             },
-            "description": "Page number for pagination"
+            "description": "Page number for pagination (default 1)"
           },
           {
             "in": "query",
             "name": "limit",
             "schema": {
-              "type": "integer",
-              "default": 20,
-              "maximum": 100
+              "type": "integer"
             },
-            "description": "Number of items per page"
+            "description": "Records per page (default 20)"
           }
         ],
         "responses": {
           "200": {
-            "description": "List of students in the class retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Student"
-                      }
-                    },
-                    "pagination": {
-                      "type": "object",
-                      "properties": {
-                        "total": {
-                          "type": "integer",
-                          "description": "Total number of students in class"
-                        },
-                        "pages": {
-                          "type": "integer",
-                          "description": "Total number of pages"
-                        },
-                        "current": {
-                          "type": "integer",
-                          "description": "Current page number"
-                        },
-                        "classId": {
-                          "type": "string",
-                          "description": "The class ID used for filtering"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "OK - List of students in the class"
           },
           "400": {
-            "description": "Bad Request - classId is required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Bad Request - classId is required"
           },
           "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Unauthorized"
           }
         }
       }
@@ -2957,8 +3058,8 @@
         "tags": [
           "Students"
         ],
-        "summary": "Get student by id with all fields and siblings",
-        "description": "Returns complete student information including personal, academic, contact, address, family details, and linked siblings. Siblings are fetched in a single efficient query.",
+        "summary": "Get student by id with all fields",
+        "description": "Returns complete student information including personal, academic, contact, address, and family details",
         "security": [
           {
             "bearerAuth": []
@@ -2972,8 +3073,7 @@
             "schema": {
               "type": "string",
               "format": "uuid"
-            },
-            "description": "Student UUID"
+            }
           }
         ],
         "responses": {
@@ -2988,7 +3088,33 @@
                       "type": "boolean"
                     },
                     "data": {
-                      "$ref": "#/components/schemas/Student"
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "admissionNo": {
+                          "type": "string"
+                        },
+                        "firstName": {
+                          "type": "string"
+                        },
+                        "lastName": {
+                          "type": "string"
+                        },
+                        "dateOfBirth": {
+                          "type": "string",
+                          "format": "date"
+                        },
+                        "photoUrl": {
+                          "type": "string"
+                        },
+                        "contacts": {
+                          "type": "array",
+                          "description": "Array of contact information (Father, Mother, Guardian, Emergency, Student)"
+                        }
+                      }
                     }
                   }
                 }
@@ -2996,34 +3122,13 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Unauthorized"
           },
           "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Forbidden"
           },
           "404": {
-            "description": "Student not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Student not found"
           }
         }
       },
@@ -3044,10 +3149,8 @@
             "name": "id",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Student UUID"
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -3055,7 +3158,6 @@
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "description": "All fields from create endpoint are available for update. Only provided fields will be updated.",
                 "properties": {
                   "admissionNo": {
                     "type": "string"
@@ -3069,11 +3171,6 @@
                   "dateOfBirth": {
                     "type": "string",
                     "format": "date"
-                  },
-                  "classId": {
-                    "type": "string",
-                    "format": "uuid",
-                    "description": "Class ID"
                   },
                   "photo": {
                     "type": "string",
@@ -3090,7 +3187,10 @@
                   },
                   "admissionType": {
                     "type": "string",
-                    "enum": ["New", "Transfer"]
+                    "enum": [
+                      "New",
+                      "Transfer"
+                    ]
                   },
                   "previousSchoolName": {
                     "type": "string"
@@ -3109,7 +3209,11 @@
                   },
                   "gender": {
                     "type": "string",
-                    "enum": ["Male", "Female", "Other"]
+                    "enum": [
+                      "Male",
+                      "Female",
+                      "Other"
+                    ]
                   },
                   "placeOfBirth": {
                     "type": "string"
@@ -3122,7 +3226,13 @@
                   },
                   "category": {
                     "type": "string",
-                    "enum": ["General", "OBC", "SC", "ST", "Other"]
+                    "enum": [
+                      "General",
+                      "OBC",
+                      "SC",
+                      "ST",
+                      "Other"
+                    ]
                   },
                   "religion": {
                     "type": "string"
@@ -3170,8 +3280,7 @@
                     "type": "string"
                   },
                   "studentEmail": {
-                    "type": "string",
-                    "format": "email"
+                    "type": "string"
                   },
                   "fatherName": {
                     "type": "string"
@@ -3183,8 +3292,7 @@
                     "type": "string"
                   },
                   "fatherEmail": {
-                    "type": "string",
-                    "format": "email"
+                    "type": "string"
                   },
                   "motherName": {
                     "type": "string"
@@ -3196,8 +3304,7 @@
                     "type": "string"
                   },
                   "motherEmail": {
-                    "type": "string",
-                    "format": "email"
+                    "type": "string"
                   },
                   "guardianName": {
                     "type": "string"
@@ -3216,16 +3323,10 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["active", "inactive"]
-                  },
-                  "siblingIds": {
-                    "type": "array",
-                    "description": "Array of sibling student IDs to link (optional). If provided, replaces ALL existing sibling relationships. Each ID must belong to the same tenant. Empty array removes all siblings.",
-                    "items": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "example": ["sibling-uuid-1", "sibling-uuid-3"]
+                    "enum": [
+                      "active",
+                      "inactive"
+                    ]
                   }
                 }
               }
@@ -3234,62 +3335,13 @@
         },
         "responses": {
           "200": {
-            "description": "Updated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "data": {
-                      "$ref": "#/components/schemas/Student"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Updated successfully"
           },
           "400": {
-            "description": "Validation error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Validation error"
           },
           "404": {
-            "description": "Student not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Not Found"
           }
         }
       },
@@ -3319,6 +3371,442 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/teachers": {
+      "post": {
+        "tags": [
+          "Teachers"
+        ],
+        "summary": "Create a new teacher",
+        "description": "Create a new teacher with profile image, resume, and joining letter uploads. teacherId is optional and will be auto-generated per tenant starting from 1 if not provided.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "example": "John"
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "example": "Doe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "example": "john.doe@school.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password",
+                    "example": "SecurePass123!"
+                  },
+                  "teacherId": {
+                    "type": "string",
+                    "example": "T001",
+                    "description": "Optional. If not provided, will be auto-generated starting from 1 per school/tenant"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "gender": {
+                    "type": "string",
+                    "enum": [
+                      "Male",
+                      "Female",
+                      "Other"
+                    ]
+                  },
+                  "dateOfBirth": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "contractType": {
+                    "type": "string",
+                    "enum": [
+                      "Permanent",
+                      "Temporary",
+                      "Contract",
+                      "Probation"
+                    ]
+                  },
+                  "qualification": {
+                    "type": "string"
+                  },
+                  "workExperience": {
+                    "type": "string"
+                  },
+                  "dateOfJoining": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "classIds": {
+                    "type": "string",
+                    "description": "JSON array of class IDs",
+                    "example": "[\"uuid1\", \"uuid2\"]"
+                  },
+                  "subjectIds": {
+                    "type": "string",
+                    "description": "JSON array of subject IDs",
+                    "example": "[\"uuid1\", \"uuid2\"]"
+                  },
+                  "basicSalary": {
+                    "type": "number",
+                    "format": "decimal"
+                  },
+                  "profileImage": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "JPG/PNG/SVG, max 4MB"
+                  },
+                  "resume": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, max 4MB"
+                  },
+                  "joiningLetter": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF, max 4MB"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Teacher created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "teacher": {
+                      "$ref": "#/components/schemas/Teacher"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "409": {
+            "description": "Duplicate email"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Teachers"
+        ],
+        "summary": "List teachers",
+        "description": "List all teachers visible to the user with RLS enforcement",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "inactive",
+                "on-leave",
+                "suspended",
+                "resigned"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "contractType",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Permanent",
+                "Temporary",
+                "Contract",
+                "Probation"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search by firstName, lastName, email, or teacherId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Teachers listed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer"
+                        },
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Teacher"
+                          }
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "totalPages": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/teachers/{id}": {
+      "get": {
+        "tags": [
+          "Teachers"
+        ],
+        "summary": "Get teacher by ID",
+        "description": "Fetch a single teacher by ID with RLS enforcement",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Teacher fetched successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "teacher": {
+                      "$ref": "#/components/schemas/Teacher"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Teacher not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Teachers"
+        ],
+        "summary": "Update teacher",
+        "description": "Update teacher record with partial updates and file replacements",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "gender": {
+                    "type": "string"
+                  },
+                  "dateOfBirth": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "contractType": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "profileImage": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "resume": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "joiningLetter": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Teacher updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "teacher": {
+                      "$ref": "#/components/schemas/Teacher"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Teacher not found"
+          },
+          "409": {
+            "description": "Duplicate email"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Teachers"
+        ],
+        "summary": "Delete teacher",
+        "description": "Soft delete a teacher (and linked user account)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Teacher deleted successfully"
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          },
+          "404": {
+            "description": "Teacher not found"
           }
         }
       }
@@ -3525,6 +4013,219 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List all users",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Page number"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Items per page"
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search by email"
+          },
+          {
+            "in": "query",
+            "name": "roleId",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Filter by role ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/User"
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "page": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "totalPages": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/profile": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get current logged-in user profile",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get user details",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}/roles": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update user roles",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "roleIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated"
           }
         }
       }

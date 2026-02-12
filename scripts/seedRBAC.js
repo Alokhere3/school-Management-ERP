@@ -19,6 +19,7 @@ const MODULES = [
     'tenant_management',       // Tenant Mgmt & Billing
     'school_config',           // School Config & Academic Year
     'user_management',         // User & Role Mgmt
+    'classes',                 // Classes & Sections
     'students',                // Student Info (SIS)
     'admissions',              // Admissions & Enquiries
     'fees',                    // Fees & Payments
@@ -111,6 +112,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'full',
         school_config: 'full',
         user_management: 'full',
+        classes: 'read',
         students: 'read',
         admissions: 'read',
         fees: 'read',
@@ -133,6 +135,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'limited',
         school_config: 'full',
         user_management: 'full',
+        classes: 'full',
         students: 'full',
         admissions: 'full',
         fees: 'full',
@@ -155,6 +158,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'limited',
+        classes: 'full',
         students: 'full',
         admissions: 'full',
         fees: 'read',
@@ -177,6 +181,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'none',
+        classes: 'read',
         students: 'limited',
         admissions: 'none',
         fees: 'read',
@@ -199,6 +204,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'read',
         school_config: 'read',
         user_management: 'limited',
+        classes: 'read',
         students: 'read',
         admissions: 'read',
         fees: 'full',
@@ -221,6 +227,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'limited',
+        classes: 'none',
         students: 'none',
         admissions: 'none',
         fees: 'read',
@@ -243,6 +250,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'none',
+        classes: 'none',
         students: 'limited',
         admissions: 'none',
         fees: 'read',
@@ -265,6 +273,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'none',
+        classes: 'read',
         students: 'limited',
         admissions: 'none',
         fees: 'read',
@@ -287,6 +296,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'none',
+        classes: 'read',
         students: 'limited',
         admissions: 'none',
         fees: 'read',
@@ -309,6 +319,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'none',
         user_management: 'none',
+        classes: 'read',
         students: 'limited',
         admissions: 'limited',
         fees: 'limited',
@@ -331,6 +342,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'none',
         user_management: 'none',
+        classes: 'read',
         students: 'limited',
         admissions: 'limited',
         fees: 'limited',
@@ -353,6 +365,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'full',
         school_config: 'read',
         user_management: 'read',
+        classes: 'read',
         students: 'read',
         admissions: 'read',
         fees: 'read',

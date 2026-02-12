@@ -28,8 +28,12 @@ class ClassRepository extends BaseRepository {
 
         switch (role.toLowerCase()) {
             case 'admin':
+            case '"School Admin"':
             case 'super_admin':
             case 'superadmin':
+            case 'school_admin':
+            case 'school_admin_global': // Added to handle the user's role
+            case 'principal':
                 return baseWhere;
 
             case 'teacher':
@@ -45,8 +49,10 @@ class ClassRepository extends BaseRepository {
                 return baseWhere;
 
             default:
-                // Unknown role - apply strictest filtering
-                baseWhere.userId = userId;
+                // Unknown role - Apply strictest filtering (Fail Closed)
+                // Class model does NOT have userId, so we cannot filter by it.
+                // We should return an impossible condition to ensure no records are returned.
+                baseWhere.id = { [Op.eq]: null };
                 return baseWhere;
         }
     }
@@ -84,7 +90,7 @@ class ClassRepository extends BaseRepository {
      */
     async createClass(classData, userContext) {
         const context = this.validateUserContext(userContext);
-        
+
         if (!this.isAdmin(context)) {
             throw new Error('INSUFFICIENT_PERMISSIONS: Only admins can create classes');
         }
@@ -102,7 +108,7 @@ class ClassRepository extends BaseRepository {
      */
     async updateClass(classId, updateData, userContext) {
         const context = this.validateUserContext(userContext);
-        
+
         const class_ = await this.findClassById(classId, userContext);
         if (!class_) {
             throw new Error('NOT_FOUND: Class not found or access denied');
@@ -120,7 +126,7 @@ class ClassRepository extends BaseRepository {
      */
     async deleteClass(classId, userContext) {
         const context = this.validateUserContext(userContext);
-        
+
         if (!this.isAdmin(context)) {
             throw new Error('INSUFFICIENT_PERMISSIONS: Only admins can delete classes');
         }
@@ -138,7 +144,7 @@ class ClassRepository extends BaseRepository {
      */
     async findClassesByTeacher(teacherId, userContext, options = {}) {
         const context = this.validateUserContext(userContext);
-        
+
         if (context.userId !== teacherId && !this.isAdmin(context)) {
             throw new Error('INSUFFICIENT_PERMISSIONS: Cannot view other teachers\' classes');
         }

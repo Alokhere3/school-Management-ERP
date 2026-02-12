@@ -19,12 +19,12 @@ const listRoles = asyncHandler(async (req, res) => {
 
         // Build where clause
         const where = {};
-        
+
         // School Admin can only see roles for their tenant (non-system roles)
         // Super Admin can see all roles
         const primaryRole = await require('../utils/authorizationHelper').getUserPrimaryRole(req.user.id, userTenantId);
         const isSuperAdmin = primaryRole && primaryRole.isSystemRole && primaryRole.name === 'Super Admin';
-        
+
         if (!isSuperAdmin) {
             // School Admin: only see tenant-scoped roles for their tenant
             where[Op.or] = [
@@ -91,7 +91,7 @@ const getRoleById = asyncHandler(async (req, res) => {
         // Check access: School Admin can only access their tenant's roles
         const primaryRole = await require('../utils/authorizationHelper').getUserPrimaryRole(req.user.id, userTenantId);
         const isSuperAdmin = primaryRole && primaryRole.isSystemRole && primaryRole.name === 'Super Admin';
-        
+
         if (!isSuperAdmin && role.tenantId && role.tenantId !== userTenantId) {
             return res.status(403).json({ success: false, error: 'Forbidden: Cannot access roles from other tenants' });
         }
@@ -128,25 +128,34 @@ const createRole = asyncHandler(async (req, res) => {
         });
 
         if (existingRole) {
-            return res.status(409).json({ 
-                success: false, 
+            return res.status(409).json({
+                success: false,
                 error: 'Role with this name already exists',
                 code: 'ROLE_EXISTS'
             });
         }
 
+        // Generate code from name
+        // Format: UPPERCASE_SNAKE_CASE
+        const code = name.trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '');
+
         const role = await Role.create({
             name: name.trim(),
+            code: code,
             description: description || null,
-            tenantId: isSuperAdmin ? (req.body.tenantId || null) : userTenantId,
+            tenantId: isSuperAdmin ? (req.body.tenantId || userTenantId || null) : userTenantId,
             isSystemRole: isSuperAdmin ? (req.body.isSystemRole || false) : false
         });
 
         res.status(201).json({ success: true, data: role });
     } catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError') {
-            return res.status(409).json({ 
-                success: false, 
+            return res.status(409).json({
+                success: false,
                 error: 'Role with this name already exists',
                 code: 'ROLE_EXISTS'
             });
@@ -173,7 +182,7 @@ const updateRole = asyncHandler(async (req, res) => {
         // Check access: School Admin can only update their tenant's roles
         const primaryRole = await require('../utils/authorizationHelper').getUserPrimaryRole(req.user.id, userTenantId);
         const isSuperAdmin = primaryRole && primaryRole.isSystemRole && primaryRole.name === 'Super Admin';
-        
+
         if (!isSuperAdmin) {
             if (role.isSystemRole) {
                 return res.status(403).json({ success: false, error: 'Forbidden: Cannot modify system roles' });
@@ -182,6 +191,14 @@ const updateRole = asyncHandler(async (req, res) => {
                 return res.status(403).json({ success: false, error: 'Forbidden: Cannot modify roles from other tenants' });
             }
         }
+
+        // FREEZE ROLE RENAMING REMOVED
+        // Now safe because RBAC looks up by immutable 'code', not 'name'.
+        /* 
+        if (name && name.trim() !== role.name) {
+             // Lock removed
+        }
+        */
 
         // Check if new name conflicts with existing role
         if (name && name.trim() !== role.name) {
@@ -194,8 +211,8 @@ const updateRole = asyncHandler(async (req, res) => {
             });
 
             if (existingRole) {
-                return res.status(409).json({ 
-                    success: false, 
+                return res.status(409).json({
+                    success: false,
                     error: 'Role with this name already exists',
                     code: 'ROLE_EXISTS'
                 });
@@ -212,8 +229,8 @@ const updateRole = asyncHandler(async (req, res) => {
         res.json({ success: true, data: role });
     } catch (error) {
         if (error.name === 'SequelizeUniqueConstraintError') {
-            return res.status(409).json({ 
-                success: false, 
+            return res.status(409).json({
+                success: false,
                 error: 'Role with this name already exists',
                 code: 'ROLE_EXISTS'
             });
@@ -239,7 +256,7 @@ const deleteRole = asyncHandler(async (req, res) => {
         // Check access: School Admin can only delete their tenant's roles
         const primaryRole = await require('../utils/authorizationHelper').getUserPrimaryRole(req.user.id, userTenantId);
         const isSuperAdmin = primaryRole && primaryRole.isSystemRole && primaryRole.name === 'Super Admin';
-        
+
         if (!isSuperAdmin) {
             if (role.isSystemRole) {
                 return res.status(403).json({ success: false, error: 'Forbidden: Cannot delete system roles' });
@@ -252,10 +269,10 @@ const deleteRole = asyncHandler(async (req, res) => {
         // Check if role is in use
         const UserRole = require('../models/UserRole');
         const userRoleCount = await UserRole.count({ where: { roleId: id } });
-        
+
         if (userRoleCount > 0) {
-            return res.status(400).json({ 
-                success: false, 
+            return res.status(400).json({
+                success: false,
                 error: `Cannot delete role: ${userRoleCount} user(s) are assigned this role`,
                 code: 'ROLE_IN_USE'
             });

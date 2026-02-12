@@ -25,6 +25,9 @@ const StudentSibling = require('./StudentSibling');
 User.hasMany(UserRole, { foreignKey: 'userId', as: 'userRoles' });
 UserRole.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+UserRole.belongsTo(Role, { foreignKey: 'roleId', as: 'roleDetail' });
+Role.hasMany(UserRole, { foreignKey: 'roleId', as: 'userRoles' });
+
 UserRole.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 Tenant.hasMany(UserRole, { foreignKey: 'tenantId', as: 'userRoles' });
 

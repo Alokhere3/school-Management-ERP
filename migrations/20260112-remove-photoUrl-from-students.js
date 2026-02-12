@@ -3,7 +3,10 @@
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     // Remove the photoUrl column from students table
-    await queryInterface.removeColumn('students', 'photoUrl');
+    const tableInfo = await queryInterface.describeTable('students');
+    if (tableInfo.photoUrl) {
+      await queryInterface.removeColumn('students', 'photoUrl');
+    }
   },
 
   down: async (queryInterface, Sequelize) => {

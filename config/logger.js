@@ -19,5 +19,9 @@ module.exports = {
     info: (msg) => console.log(format('info', msg)),
     error: (msg) => console.error(format('error', msg)),
     warn: (msg) => console.warn(format('warn', msg)),
-    debug: (msg) => console.debug ? console.debug(format('debug', msg)) : console.log(format('debug', msg))
+    // Force debug logs for migration monitoring (Phase 0)
+    debug: (msg) => {
+        const output = format('debug', msg);
+        console.log(output); // Always log debug to console during migration
+    }
 };

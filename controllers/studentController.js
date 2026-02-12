@@ -21,55 +21,52 @@ const getClassDataForStudent = async (classId, userContext) => {
     if (!classId) {
         return null;
     }
-    
+
     try {
-        console.log(`[CLASS_FETCH] Fetching class ${classId} for student`);
-        
-        // Try using the repository first (RLS-aware)
+        // Fetching class ${classId} for student
+        let classRecord = null;
+        const opts = { ...userContext }; // Clone context
+
+        // 1. Try fetching by ID using repository (RLS-aware)
         try {
-            const classRecord = await repos.class.findClassById(classId, userContext);
-            
+            // Check if classId looks like a UUID
+            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(classId);
+
+            if (isUUID) {
+                classRecord = await repos.class.findClassById(classId, userContext);
+            } else {
+                // Not a UUID, try finding by className (e.g. 'II')
+                // Note: This is a hacky fallback, assuming className is unique per tenant
+                const Class = require('../models/Class');
+                classRecord = await Class.findOne({
+                    where: {
+                        className: classId,
+                        tenantId: userContext.tenantId
+                    }
+                });
+            }
+
             if (classRecord) {
                 const classData = classRecord.toJSON ? classRecord.toJSON() : classRecord;
                 const denormalizedData = {
                     id: classData.id,
-                    name: classData.name,
+                    name: classData.className, // Map className to name
                     section: classData.section,
-                    academicYear: classData.academicYear,
-                    classTeacherId: classData.classTeacherId
+                    academicYear: classData.academicYear, // If exists
+                    classTeacherId: classData.classTeacherId // If exists
                 };
-                console.log(`[CLASS_FETCH] ✅ Fetched via repository:`, denormalizedData);
+                logger.debug(`[CLASS_FETCH] Fetched via repository/model for input: ${classId}`);
                 return denormalizedData;
             }
         } catch (repoErr) {
-            console.warn(`[CLASS_FETCH] Repository fetch failed:`, repoErr.message);
+            logger.warn(`[CLASS_FETCH] Repository/Model fetch failed: ${repoErr.message}`);
         }
-        
-        // Fallback: Direct model query (less secure but guaranteed to work if class exists)
-        console.log(`[CLASS_FETCH] Trying direct model query as fallback...`);
-        const Class = require('../models/Class');
-        const classRecord = await Class.findOne({
-            where: { id: classId, tenantId: userContext.tenantId },
-            raw: true
-        });
-        
-        if (classRecord) {
-            const denormalizedData = {
-                id: classRecord.id,
-                name: classRecord.name,
-                section: classRecord.section,
-                academicYear: classRecord.academicYear,
-                classTeacherId: classRecord.classTeacherId
-            };
-            console.log(`[CLASS_FETCH] ✅ Fetched via direct model:`, denormalizedData);
-            return denormalizedData;
-        }
-        
-        console.warn(`[CLASS_FETCH] Class ${classId} not found in any method`);
+
+        logger.warn(`[CLASS_FETCH] Class ${classId} not found in any method`);
         return null;
-        
+
     } catch (err) {
-        console.error(`[CLASS_FETCH] ❌ Unexpected error:`, err.message);
+        logger.error(`[CLASS_FETCH] Unexpected error: ${err.message}`);
         return null;
     }
 };
@@ -78,23 +75,24 @@ const getClassDataForStudent = async (classId, userContext) => {
 const listStudents = asyncHandler(async (req, res) => {
     const { page = 1, limit = 20, classId } = req.query;
     const userContext = req.userContext || req.user;
-    
+
     if (!userContext) {
         return sendError(res, { status: 401, body: { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' } });
     }
-    
+
     try {
         // Build filters for repository
         const filters = classId ? { classId } : {};
         const options = { page: Number(page), limit: Number(limit) };
-        
+
         // Debug logging
-        console.log('[DEBUG] listStudents called with:', { userContext: { userId: userContext.userId, tenantId: userContext.tenantId, role: userContext.role }, filters, options });
-        
+        // logger.debug('listStudents called with options', { filters, options });
+
         // RLS enforcement: Use repository to get only accessible students
         const { count, rows } = await repos.student.findVisibleStudents(userContext, filters, options);
-        console.log('[DEBUG] findVisibleStudents returned:', { count, rowsCount: rows.length });
-        
+        // Debug logging for row count
+        // logger.debug('findVisibleStudents result', { count, rowsCount: rows.length });
+
         // Convert S3 keys to proxy URLs (backend serves images)
         const dataWithProxyUrls = rows.map((student) => {
             const s = student.toJSON ? student.toJSON() : student;
@@ -105,15 +103,15 @@ const listStudents = asyncHandler(async (req, res) => {
             }
             return s;
         });
-        
-        res.json({ 
-            success: true, 
-            data: dataWithProxyUrls, 
-            pagination: { 
-                total: count, 
-                pages: Math.ceil(count / limit), 
-                current: Number(page) 
-            } 
+
+        res.json({
+            success: true,
+            data: dataWithProxyUrls,
+            pagination: {
+                total: count,
+                pages: Math.ceil(count / limit),
+                current: Number(page)
+            }
         });
     } catch (err) {
         console.error('Error listing students:', err);
@@ -126,7 +124,7 @@ const listStudents = asyncHandler(async (req, res) => {
 // POST /api/students/onboarding - Start a new onboarding record (partial student)
 const startOnboarding = asyncHandler(async (req, res) => {
     const userContext = req.userContext || req.user;
-    
+
     if (!userContext || !userContext.tenantId) {
         return sendError(res, { status: 401, body: { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' } });
     }
@@ -149,13 +147,13 @@ const startOnboarding = asyncHandler(async (req, res) => {
 const updateOnboarding = asyncHandler(async (req, res) => {
     const userContext = req.userContext || req.user;
     const id = req.params.id;
-    
+
     if (!userContext || !userContext.tenantId) {
         return sendError(res, { status: 401, body: { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' } });
     }
 
     const { onboardingData, step, completed } = req.body || {};
-    
+
     // RLS enforcement: Repository enforces access control
     const student = await repos.student.findStudentById(id, userContext);
     if (!student) {
@@ -172,7 +170,7 @@ const updateOnboarding = asyncHandler(async (req, res) => {
     // RLS enforcement: Repository validates access
     await repos.student.updateStudent(id, updates, userContext);
     const updated = await repos.student.findStudentById(id, userContext);
-    
+
     const s = updated.toJSON ? updated.toJSON() : updated;
     res.json({ success: true, data: s });
 });
@@ -180,67 +178,56 @@ const updateOnboarding = asyncHandler(async (req, res) => {
 // POST /api/students
 const createStudent = asyncHandler(async (req, res) => {
     const userContext = req.userContext || req.user;
-    
+
     if (!userContext || !userContext.tenantId) {
         return sendError(res, { status: 401, body: { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' } });
     }
-    
-    if (!req.body.admissionNo) {
-        return sendError(res, { status: 400, body: { success: false, error: 'admissionNo is required', code: 'ADMISSION_NO_REQUIRED' } });
-    }
-    
+
     // Fetch and denormalize class data if classId provided
     let classData = null;
     if (req.body.classId) {
         classData = await getClassDataForStudent(req.body.classId, userContext);
     }
-    // Build admissionClass from provided className or denormalized classData
-    let admissionClass = null;
-    const providedClassName = req.body.className || (classData && (classData.className || classData.name));
-    const sectionForAdmission = req.body.section || (classData && classData.section);
-    if (providedClassName) {
-        admissionClass = sectionForAdmission ? `${providedClassName} - ${sectionForAdmission}` : providedClassName;
-    }
-    
+
     // Note: File will be uploaded AFTER student creation (so we have the student.id for key generation)
 
     const payload = {
         // Basic Info
-        admissionNo: req.body.admissionNo,
+        admissionNo: null, // Always auto-generate admissionNo in repository
         firstName: req.body.firstName,
         lastName: req.body.lastName || '',
         dateOfBirth: req.body.dateOfBirth || null,
-        classId: req.body.classId || null,
+        classId: classData ? classData.id : (req.body.classId || null), // Use resolved ID if available
         classData: classData, // Store denormalized class data
         photoKey: null,  // Will be set after file upload
-        
+
         // Academic Info
         stream: req.body.stream || null,
         session: req.body.session || null,
-        admissionClass: admissionClass,
-        
+        admissionClass: req.body.className || null,
+
         // Personal Details
         gender: req.body.gender || null,
         category: req.body.category || null,
         religion: req.body.religion || null,
         motherTongue: req.body.motherTongue || null,
-        
+
         // Contact Info
         studentMobile: req.body.studentMobile || null,
         studentEmail: req.body.studentEmail || null,
-        
+
         // Current Address
         currentAddressLine1: req.body.currentAddressLine1 || null,
         currentCity: req.body.currentCity || null,
         currentState: req.body.currentState || null,
         currentPIN: req.body.currentPIN || null,
-        
+
         // Permanent Address
         permanentAddressLine1: req.body.permanentAddressLine1 || null,
         permanentCity: req.body.permanentCity || null,
         permanentState: req.body.permanentState || null,
         permanentPIN: req.body.permanentPIN || null,
-        
+
         // Family Details
         fatherName: req.body.fatherName || null,
         fatherPhone: req.body.fatherPhone || null,
@@ -250,33 +237,26 @@ const createStudent = asyncHandler(async (req, res) => {
         motherPhone: req.body.motherPhone || null,
         motherEmail: req.body.motherEmail || null,
         motherOccupation: req.body.motherOccupation || null,
-        
+
         // Guardian Details
         guardianName: req.body.guardianName || null,
         guardianPhone: req.body.guardianPhone || null,
         guardianRelation: req.body.guardianRelation || null,
-        
+
         status: req.body.status || 'active'
     };
 
     // Extract sibling IDs for later processing
     const siblingIds = req.body.siblingIds || [];
-    console.log(`[DEBUG-CONTROLLER] siblingIds received:`, siblingIds);
-    console.log(`[DEBUG-CONTROLLER] siblingIds type:`, typeof siblingIds);
-    console.log(`[DEBUG-CONTROLLER] siblingIds is array:`, Array.isArray(siblingIds));
 
     // Start transaction for atomic student + sibling creation
     const transaction = await sequelize.transaction();
-    console.log(`[DEBUG-CONTROLLER] Transaction created for createStudent`);
-    console.log(`[DEBUG-CONTROLLER] Transaction ID:`, transaction.id);
-    console.log(`[DEBUG-CONTROLLER] Transaction type:`, transaction.constructor.name);
 
     try {
         // RLS enforcement: Repository enforces tenant isolation automatically
         // Pass transaction to student creation
-        console.log(`[DEBUG-CONTROLLER] Calling repos.student.createStudent with transaction...`);
         const student = await repos.student.createStudent(payload, userContext, transaction);
-        
+
         // After creation, if we have a file buffer, upload it to S3 using the real student ID
         if (req.file && req.file.buffer) {
             if (!validateExtensionForCategory(req.file.originalname, 'profile')) {
@@ -299,15 +279,10 @@ const createStudent = asyncHandler(async (req, res) => {
         // Create sibling relationships if provided
         if (siblingIds && siblingIds.length > 0) {
             try {
-                console.log(`[DEBUG] [createStudent] STARTING SIBLING CREATION for student ${student.id} with sibling IDs:`, siblingIds);
-                console.log(`[DEBUG] [createStudent] Transaction object:`, transaction ? 'PRESENT' : 'MISSING');
-                console.log(`[DEBUG] [createStudent] Transaction ID:`, transaction ? transaction.id : 'N/A');
-                
                 const siblingResult = await repos.studentSibling.createSiblingRelationships(student.id, siblingIds, userContext, transaction);
-                console.log(`[DEBUG] [createStudent] Sibling creation returned:`, siblingResult);
                 logger.info(`[createStudent] Created ${siblingIds.length} sibling relationships for student ${student.id}`);
             } catch (siblingErr) {
-                console.error(`[DEBUG] [createStudent] SIBLING CREATION ERROR:`, siblingErr);
+                logger.error(`[createStudent] Sibling creation error: ${siblingErr.message}`);
                 await transaction.rollback();
                 logger.error(`[createStudent] Sibling creation failed: ${siblingErr.message}`);
                 return sendError(res, { status: 400, body: { success: false, error: siblingErr.message, code: 'SIBLING_ERROR' } });
@@ -315,14 +290,10 @@ const createStudent = asyncHandler(async (req, res) => {
         }
 
         // Commit transaction
-        console.log(`[DEBUG-CONTROLLER] COMMITTING TRANSACTION...`);
         await transaction.commit();
-        console.log(`[DEBUG-CONTROLLER] TRANSACTION COMMITTED SUCCESSFULLY`);
 
         // Fetch updated student with siblings
-        console.log(`[DEBUG-CONTROLLER] Fetching student with siblings...`);
         const updated = await repos.student.findStudentWithSiblings(student.id, userContext);
-        console.log(`[DEBUG-CONTROLLER] Student fetched with ${updated.siblings ? updated.siblings.length : 0} siblings`);
         const s = updated.toJSON ? updated.toJSON() : updated;
         if (s.photoKey) {
             s.photoUrl = buildProxyUrl(s.photoKey);
@@ -331,10 +302,8 @@ const createStudent = asyncHandler(async (req, res) => {
         }
         res.status(201).json({ success: true, data: s });
     } catch (err) {
-        console.error(`[DEBUG-CONTROLLER] ERROR IN CREATE STUDENT:`, err.message);
-        console.error(`[DEBUG-CONTROLLER] ROLLING BACK TRANSACTION...`);
+        logger.error(`[createStudent] Transaction failed: ${err.message}`);
         await transaction.rollback();
-        console.error(`[DEBUG-CONTROLLER] TRANSACTION ROLLED BACK`);
         console.error('Error creating student:', err);
         if (err.sql) console.error('SQL Error:', err.sql);
         if (err.stack) console.error('Stack:', err.stack);
@@ -346,11 +315,11 @@ const createStudent = asyncHandler(async (req, res) => {
 const updateStudent = asyncHandler(async (req, res) => {
     const userContext = req.userContext || req.user;
     const studentId = req.params.id;
-    
+
     if (!userContext || !userContext.tenantId) {
         return sendError(res, { status: 401, body: { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' } });
     }
-    
+
     // If classId is being changed, fetch new class data
     let classData = undefined;
     if (req.body.classId) {
@@ -363,7 +332,7 @@ const updateStudent = asyncHandler(async (req, res) => {
     if (providedClassName) {
         admissionClass = sectionForAdmission ? `${providedClassName} - ${sectionForAdmission}` : providedClassName;
     }
-    
+
     // Handle multipart photo file if provided - upload to S3 first, then update
     let photoKeyForUpdate = undefined;
     if (req.file && req.file.buffer) {
@@ -398,37 +367,37 @@ const updateStudent = asyncHandler(async (req, res) => {
         firstName: req.body.firstName || undefined,
         lastName: req.body.lastName || undefined,
         dateOfBirth: req.body.dateOfBirth || undefined,
-        classId: req.body.classId || undefined,
+        classId: classData ? classData.id : (req.body.classId || undefined), // Use resolved ID if available
         classData: classData, // Update denormalized class data if classId changed
         photoUrl: undefined,
         photoKey: photoKeyForUpdate,
-        
+
         // Academic Info
         stream: req.body.stream || undefined,
         session: req.body.session || undefined,
-        
+
         // Personal Details
         gender: req.body.gender || undefined,
         category: req.body.category || undefined,
         religion: req.body.religion || undefined,
         motherTongue: req.body.motherTongue || undefined,
-        
+
         // Contact Info
         studentMobile: req.body.studentMobile || undefined,
         studentEmail: req.body.studentEmail || undefined,
-        
+
         // Current Address
         currentAddressLine1: req.body.currentAddressLine1 || undefined,
         currentCity: req.body.currentCity || undefined,
         currentState: req.body.currentState || undefined,
         currentPIN: req.body.currentPIN || undefined,
-        
+
         // Permanent Address
         permanentAddressLine1: req.body.permanentAddressLine1 || undefined,
         permanentCity: req.body.permanentCity || undefined,
         permanentState: req.body.permanentState || undefined,
         permanentPIN: req.body.permanentPIN || undefined,
-        
+
         // Family Details
         fatherName: req.body.fatherName || undefined,
         fatherPhone: req.body.fatherPhone || undefined,
@@ -438,16 +407,16 @@ const updateStudent = asyncHandler(async (req, res) => {
         motherPhone: req.body.motherPhone || undefined,
         motherEmail: req.body.motherEmail || undefined,
         motherOccupation: req.body.motherOccupation || undefined,
-        
+
         // Guardian Details
         guardianName: req.body.guardianName || undefined,
         guardianPhone: req.body.guardianPhone || undefined,
         guardianRelation: req.body.guardianRelation || undefined,
-        
+
         status: req.body.status || undefined,
-        admissionClass: admissionClass
+        admissionClass: req.body.className || undefined
     };
-    
+
     // Remove undefined fields
     Object.keys(updates).forEach(k => updates[k] === undefined && delete updates[k]);
 
@@ -458,13 +427,13 @@ const updateStudent = asyncHandler(async (req, res) => {
         // RLS enforcement: Repository validates access and updates only if allowed
         // Pass transaction to student update
         await repos.student.updateStudent(studentId, updates, userContext, transaction);
-        
+
         // Handle sibling relationship updates if provided
         if (siblingIds !== undefined) {
             try {
                 // Remove all existing sibling relationships for this student
                 await repos.studentSibling.removeSiblingsForStudent(studentId, userContext, transaction);
-                
+
                 // Create new sibling relationships if provided
                 if (siblingIds && siblingIds.length > 0) {
                     await repos.studentSibling.createSiblingRelationships(studentId, siblingIds, userContext, transaction);
@@ -481,11 +450,11 @@ const updateStudent = asyncHandler(async (req, res) => {
         await transaction.commit();
 
         const student = await repos.student.findStudentWithSiblings(studentId, userContext);
-        
+
         if (!student) {
             return sendError(res, { status: 404, body: { success: false, error: 'Student not found', code: 'NOT_FOUND' } });
         }
-        
+
         const s = student.toJSON ? student.toJSON() : student;
         if (s.photoKey) {
             s.photoUrl = buildProxyUrl(s.photoKey);
@@ -507,22 +476,20 @@ const getStudentsByClass = asyncHandler(async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const classId = req.params.classId;
     const userContext = req.userContext || req.user;
-    
+
     if (!userContext) {
         return sendError(res, { status: 401, body: { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' } });
     }
-    
+
     if (!classId) {
         return sendError(res, { status: 400, body: { success: false, error: 'classId is required', code: 'CLASS_ID_REQUIRED' } });
     }
-    
+
     try {
         // RLS enforcement: Repository returns only accessible students
         const options = { page: Number(page), limit: Number(limit) };
         const { count, rows } = await repos.student.findStudentsByClass(classId, userContext, options);
-        
-        console.log('[DEBUG] getStudentsByClass - classId:', classId, 'found:', rows.length, 'total:', count);
-        
+
         // Convert S3 keys to proxy URLs (backend serves images)
         const dataWithProxyUrls = rows.map((student) => {
             const s = student.toJSON ? student.toJSON() : student;
@@ -533,16 +500,16 @@ const getStudentsByClass = asyncHandler(async (req, res) => {
             }
             return s;
         });
-        
-        res.json({ 
-            success: true, 
-            data: dataWithProxyUrls, 
-            pagination: { 
-                total: count, 
-                pages: Math.ceil(count / limit), 
+
+        res.json({
+            success: true,
+            data: dataWithProxyUrls,
+            pagination: {
+                total: count,
+                pages: Math.ceil(count / limit),
                 current: Number(page),
                 classId: classId
-            } 
+            }
         });
     } catch (err) {
         console.error('Error fetching students by class:', err);
@@ -555,26 +522,26 @@ const getStudentsByClass = asyncHandler(async (req, res) => {
 const getStudentById = asyncHandler(async (req, res) => {
     const userContext = req.userContext || req.user;
     const studentId = req.params.id;
-    
+
     if (!userContext || !userContext.tenantId) {
         return sendError(res, { status: 401, body: { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' } });
     }
-    
+
     // RLS enforcement: Repository returns null if user doesn't have access
     // Uses single query with join to fetch student + siblings
     const student = await repos.student.findStudentWithSiblings(studentId, userContext);
-    
+
     if (!student) {
         return sendError(res, { status: 404, body: { success: false, error: 'Student not found', code: 'NOT_FOUND' } });
     }
-    
+
     const s = student.toJSON ? student.toJSON() : student;
     if (s.photoKey) {
         s.photoUrl = buildProxyUrl(s.photoKey);
     } else {
         s.photoUrl = null;
     }
-    
+
     // Convert sibling photoKeys to photoUrls
     if (s.siblings && Array.isArray(s.siblings)) {
         s.siblings = s.siblings.map(sibling => {
@@ -586,7 +553,7 @@ const getStudentById = asyncHandler(async (req, res) => {
             return sibling;
         });
     }
-    
+
     res.json({ success: true, data: s });
 });
 
@@ -594,11 +561,11 @@ const getStudentById = asyncHandler(async (req, res) => {
 const deleteStudent = asyncHandler(async (req, res) => {
     const userContext = req.userContext || req.user;
     const studentId = req.params.id;
-    
+
     if (!userContext || !userContext.tenantId) {
         return sendError(res, { status: 401, body: { success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' } });
     }
-    
+
     // Start transaction for atomic student + sibling deletion
     const transaction = await sequelize.transaction();
 
@@ -606,10 +573,10 @@ const deleteStudent = asyncHandler(async (req, res) => {
         // RLS enforcement: Repository validates deletion permissions and handles sibling cleanup
         // Remove all sibling relationships with transaction
         await repos.studentSibling.removeSiblingsForStudent(studentId, userContext, transaction);
-        
+
         // Delete the student with transaction
         await repos.student.deleteStudent(studentId, userContext, transaction);
-        
+
         // Commit transaction
         await transaction.commit();
         res.status(204).send();

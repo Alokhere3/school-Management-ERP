@@ -15,7 +15,7 @@
  *   );
  */
 
-const { Op } = require('sequelize');
+const ScopeResolver = require('../services/ScopeResolver');
 
 /**
  * Convert enum role value (e.g., 'SUPER_ADMIN') to title case role name (e.g., 'Super Admin')
@@ -51,80 +51,16 @@ function authorize(resource, action, scope = null) {
                 return res.status(401).json({ message: 'Unauthorized: No tenant in request' });
             }
 
-            const userId = req.user.id;
-            const tenantId = req.user.tenantId;
-
-            // Import models here to avoid circular dependencies
-            const UserRole = require('../models/UserRole');
-            const Role = require('../models/Role');
-            const RolePermission = require('../models/RolePermission');
-            const Permission = require('../models/Permission');
-
-            // Fetch user roles for this tenant
-            const userRoles = await UserRole.findAll({
-                where: { userId, tenantId }
-            });
-
-            if (!userRoles || userRoles.length === 0) {
-                return res.status(403).json({ message: 'Forbidden: No roles assigned for this tenant' });
+            if (!req.userContext) {
+                logger.warn('User context not initialized for authorization');
+                return res.status(500).json({ message: 'Authorization context missing' });
             }
 
-            // Shortcut: allow tenant admin roles to fully manage certain tenant-scoped resources
-            // CRITICAL: Use req.userContext.roles (from enhancedRls middleware) not req.user.roles
-            const contextRoles = req.userContext?.roles || [];
-            const contextRolesUpper = contextRoles.map(r => typeof r === 'string' ? r.toUpperCase().replace(/\s+/g, '_') : r);
-            
-            if (resource === 'classes') {
-                if (contextRolesUpper.includes('SUPER_ADMIN')) {
-                    return res.status(403).json({ message: 'Forbidden: Super admin cannot access tenant classes' });
-                }
-                if (contextRolesUpper.some(r => typeof r === 'string' && r.endsWith('_ADMIN'))) {
-                    // Grant full access for tenant admin roles without consulting RolePermission table
-                    req.permission = { resource, action, level: 'full', userRoles: contextRoles };
-                    return next();
-                }
-            }
-
-            // Get role names from the user roles and find matching Role records
-            const roleNames = userRoles.map(ur => enumToRoleName(ur.role));
-            const roleRecords = await Role.findAll({
-                where: { name: { [Op.in]: roleNames } }
-            });
-
-            const roleIds = roleRecords.map(r => r.id);
-
-            if (roleIds.length === 0) {
-                return res.status(403).json({ message: 'Forbidden: No matching roles found' });
-            }
-
-            // Fetch all permissions assigned to these roles for this resource+action
-            const rolePermissions = await RolePermission.findAll({
-                where: { roleId: { [Op.in]: roleIds } },
-                include: [
-                    {
-                        model: Permission,
-                        as: 'permission',
-                        where: { resource, action },
-                        required: true
-                    }
-                ]
-            });
-
-            // Determine the highest permission level granted
-            let maxLevel = 'none';
-            const levels = ['none', 'read', 'limited', 'full'];
-
-            rolePermissions.forEach(rp => {
-                const currentIndex = levels.indexOf(rp.level || 'none');
-                const maxIndex = levels.indexOf(maxLevel);
-                if (currentIndex > maxIndex) {
-                    maxLevel = rp.level;
-                }
-            });
-
-            if (maxLevel === 'none') {
+            const resolved = ScopeResolver.resolve(req.userContext, resource, action);
+            if (!resolved.allowed) {
                 return res.status(403).json({
-                    message: `Forbidden: No ${action} permission on ${resource}`
+                    message: `Forbidden: No ${action} permission on ${resource}`,
+                    reason: resolved.reason || 'DENIED'
                 });
             }
 
@@ -132,8 +68,9 @@ function authorize(resource, action, scope = null) {
             req.permission = {
                 resource,
                 action,
-                level: maxLevel,
-                userRoles: roleRecords.map(r => r.name)
+                scope: resolved.scope || 'self',
+                conditions: resolved.conditions || [],
+                allowed: true
             };
 
             // Apply row-level scope filter if provided
@@ -164,55 +101,10 @@ async function checkPermission(user, resource, action) {
         return 'none';
     }
 
-    const UserRole = require('../models/UserRole');
-    const Role = require('../models/Role');
-    const RolePermission = require('../models/RolePermission');
-    const Permission = require('../models/Permission');
-
-    const userRoles = await UserRole.findAll({
-        where: { userId: user.id, tenantId: user.tenantId }
-    });
-
-    if (!userRoles || userRoles.length === 0) {
-        return 'none';
-    }
-
-    // Get role names from the user roles and find matching Role records
-    const roleNames = userRoles.map(ur => enumToRoleName(ur.role));
-    const roleRecords = await Role.findAll({
-        where: { name: { [Op.in]: roleNames } }
-    });
-
-    const roleIds = roleRecords.map(r => r.id);
-
-    if (roleIds.length === 0) {
-        return 'none';
-    }
-
-    const rolePermissions = await RolePermission.findAll({
-        where: { roleId: { [Op.in]: roleIds } },
-        include: [
-            {
-                model: Permission,
-                as: 'permission',
-                where: { resource, action },
-                required: true
-            }
-        ]
-    });
-
-    const levels = ['none', 'read', 'limited', 'full'];
-    let maxLevel = 'none';
-
-    rolePermissions.forEach(rp => {
-        const currentIndex = levels.indexOf(rp.level || 'none');
-        const maxIndex = levels.indexOf(maxLevel);
-        if (currentIndex > maxIndex) {
-            maxLevel = rp.level;
-        }
-    });
-
-    return maxLevel;
+    const userContext = user.userContext || user;
+    const resolved = ScopeResolver.resolve(userContext, resource, action);
+    if (!resolved.allowed) return 'none';
+    return resolved.scope || 'self';
 }
 
 /**

@@ -39,19 +39,22 @@ try {
 }
 
 // Try to generate swagger spec from JSDoc using swagger-jsdoc (optional dev dependency)
-try {
-    const swaggerJsdoc = require('swagger-jsdoc');
-    const options = {
-        definition: swaggerDocument || {
-            openapi: '3.0.0',
-            info: { title: 'School ERP API', version: '1.0.0' }
-        },
-        apis: [__dirname + '/routes/*.js', __dirname + '/models/*.js']
-    };
-    swaggerSpec = swaggerJsdoc(options);
-} catch (e) {
-    // swagger-jsdoc may not be installed or generation failed; we'll fall back to static doc
-    swaggerSpec = null;
+// NOTE: If a static swagger.json exists, we prefer it to preserve examples and rich schema data.
+if (!swaggerDocument) {
+    try {
+        const swaggerJsdoc = require('swagger-jsdoc');
+        const options = {
+            definition: {
+                openapi: '3.0.0',
+                info: { title: 'School ERP API', version: '1.0.0' }
+            },
+            apis: [__dirname + '/routes/*.js', __dirname + '/models/*.js']
+        };
+        swaggerSpec = swaggerJsdoc(options);
+    } catch (e) {
+        // swagger-jsdoc may not be installed or generation failed; we'll fall back to static doc
+        swaggerSpec = null;
+    }
 }
 
 // Load models to ensure they are registered with Sequelize
@@ -186,6 +189,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/staff', require('./routes/staff'));
 app.use('/api/teachers', require('./routes/teachers'));
 app.use('/api/classes', require('./routes/classes'));
+app.use('/api/users', require('./routes/users'));
 app.use('/api/roles', require('./routes/roles'));
 app.use('/api/permissions', require('./routes/permissions'));
 app.use('/api/tenants', require('./routes/tenants'));

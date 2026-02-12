@@ -17,19 +17,14 @@ const UserRole = sequelize.define('UserRole', {
         allowNull: false,
         references: { model: 'tenants', key: 'id' }
     },
+    roleId: {
+        type: DataTypes.UUID,
+        allowNull: true, // Should be false eventually, but true for migration
+        references: { model: 'roles', key: 'id' }
+    },
     role: {
-        type: DataTypes.ENUM(
-            'SUPER_ADMIN',
-            'SCHOOL_ADMIN',
-            'TEACHER',
-            'STAFF',
-            'STUDENT',
-            'PARENT',
-            'ACCOUNTANT',
-            'LIBRARIAN',
-            'ADMIN'
-        ),
-        allowNull: false
+        type: DataTypes.STRING, // Changed from ENUM to STRING to support legacy values + custom role names if needed
+        allowNull: true
     },
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE

@@ -26,6 +26,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'limited',
         school_config: 'full',
         user_management: 'full',
+        classes: 'full',
         students: 'full',
         admissions: 'full',
         fees: 'full',
@@ -48,6 +49,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'limited',
+        classes: 'full',
         students: 'full',
         admissions: 'full',
         fees: 'read',
@@ -70,8 +72,9 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'none',
+        classes: 'read',
         students: 'limited',
-        admissions: 'none',
+        admissions: 'limited',
         fees: 'read',
         attendance_students: 'full',
         attendance_staff: 'none',
@@ -92,6 +95,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'read',
         school_config: 'read',
         user_management: 'limited',
+        classes: 'read',
         students: 'read',
         admissions: 'read',
         fees: 'full',
@@ -114,6 +118,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'limited',
+        classes: 'none',
         students: 'none',
         admissions: 'none',
         fees: 'read',
@@ -136,6 +141,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'none',
+        classes: 'none',
         students: 'limited',
         admissions: 'none',
         fees: 'read',
@@ -158,6 +164,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'none',
+        classes: 'read',
         students: 'limited',
         admissions: 'none',
         fees: 'read',
@@ -180,6 +187,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'read',
         user_management: 'none',
+        classes: 'read',
         students: 'limited',
         admissions: 'none',
         fees: 'read',
@@ -202,6 +210,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'none',
         user_management: 'none',
+        classes: 'read',
         students: 'limited',
         admissions: 'limited',
         fees: 'limited',
@@ -224,6 +233,7 @@ const ACCESS_MATRIX = {
         tenant_management: 'none',
         school_config: 'none',
         user_management: 'none',
+        classes: 'read',
         students: 'limited',
         admissions: 'limited',
         fees: 'limited',
@@ -259,7 +269,7 @@ async function seedTenantRoles(tenantId) {
     try {
         // Ensure all permissions exist (they should already exist from seedRBAC)
         const MODULES = [
-            'tenant_management', 'school_config', 'user_management', 'students', 'admissions',
+            'tenant_management', 'school_config', 'user_management', 'classes', 'students', 'admissions',
             'fees', 'attendance_students', 'attendance_staff', 'timetable', 'exams',
             'communication', 'transport', 'library', 'hostel', 'hr_payroll',
             'inventory', 'lms', 'analytics', 'technical_ops', 'data_export'
@@ -298,7 +308,7 @@ async function seedTenantRoles(tenantId) {
 
             for (const [module, level] of Object.entries(moduleAccessMap)) {
                 const actions = LEVEL_TO_ACTIONS[level] || [];
-                
+
                 for (const action of actions) {
                     const permission = await Permission.findOne({
                         where: { resource: module, action }
@@ -331,7 +341,11 @@ async function seedTenantRoles(tenantId) {
  */
 async function getRolePermissions(roleId) {
     const Permission = require('../models/Permission');
-    
+
+    // 1. Fetch ALL system permissions
+    const allPermissions = await Permission.findAll();
+
+    // 2. Fetch ASSIGNED permissions for this role
     const rolePermissions = await RolePermission.findAll({
         where: { roleId },
         include: [
@@ -343,19 +357,27 @@ async function getRolePermissions(roleId) {
         ]
     });
 
-    // Group by module
-    const permissionsByModule = {};
+    // 3. Create a map of assigned permissions for quick lookup
+    const assignedMap = {};
     rolePermissions.forEach(rp => {
-        if (rp.permission) {
-            const module = rp.permission.resource;
-            if (!permissionsByModule[module]) {
-                permissionsByModule[module] = {
-                    module,
-                    permissions: {}
-                };
-            }
-            permissionsByModule[module].permissions[rp.permission.action] = rp.level;
+        assignedMap[rp.permissionId] = rp.level;
+    });
+
+    // 4. Merge and Group by module
+    const permissionsByModule = {};
+
+    allPermissions.forEach(perm => {
+        const module = perm.resource;
+        const action = perm.action;
+        const level = assignedMap[perm.id] || 'none'; // Default to 'none' if not assigned
+
+        if (!permissionsByModule[module]) {
+            permissionsByModule[module] = {
+                module,
+                permissions: {}
+            };
         }
+        permissionsByModule[module].permissions[action] = level;
     });
 
     return Object.values(permissionsByModule);
@@ -364,21 +386,67 @@ async function getRolePermissions(roleId) {
 /**
  * Update role permissions (bulk)
  */
+/**
+ * Helper: Map legacy level to new policy fields
+ */
+function mapLevelToPolicy(level) {
+    if (typeof level === 'object' && level !== null) {
+        return {
+            effect: level.effect || 'allow',
+            scope: level.scope || 'self',
+            conditions: level.conditions || null
+        };
+    }
+
+    // Default mapping for string levels
+    // 'full' -> allow, tenant (max)
+    // 'read' -> allow, tenant (max) - action restricted by permission itself
+    // 'limited' -> allow, owned (typical for limited access)
+    // 'none' -> deny (handled by caller usually, but here for completeness)
+    switch (level) {
+        case 'full':
+            return { effect: 'allow', scope: 'tenant', conditions: null };
+        case 'read':
+            return { effect: 'allow', scope: 'tenant', conditions: null };
+        case 'limited':
+            return { effect: 'allow', scope: 'owned', conditions: null }; // Default limited to owned
+        case 'none':
+            return { effect: 'deny', scope: 'none', conditions: null };
+        default:
+            return { effect: 'allow', scope: 'self', conditions: null };
+    }
+}
+
+/**
+ * Update role permissions (bulk)
+ */
 async function updateRolePermissions(roleId, permissions) {
-    // permissions format: [{ module: 'students', actions: { create: 'full', read: 'full', ... } }]
+    // permissions format: [{ module: 'students', actions: { create: 'full', read: { effect: 'allow', scope: 'owned' } } }]
     const Permission = require('../models/Permission');
     const { Op } = require('sequelize');
-    
+
     for (const perm of permissions) {
         const { module, actions } = perm;
-        
-        for (const [action, level] of Object.entries(actions)) {
+
+        for (const [action, value] of Object.entries(actions)) {
             const permission = await Permission.findOne({
                 where: { resource: module, action }
             });
 
             if (permission) {
-                if (level === 'none' || !level) {
+                // Determine policy
+                // If value is null/undefined/'none', remove/deny
+                if (!value || value === 'none' || (value.effect === 'deny' && !value.scope)) {
+                    // If explicit deny with scope/conditions, we might want to keep it?
+                    // But legacy 'none' means remove row.
+                    // Phase 2 says "No Partial Auth". 
+                    // If we remove row, it falls back to implicit deny (Good).
+                    // UNLESS we want Explicit Deny to override other allowed roles?
+                    // For now, treat 'none' or null as REMOVE.
+                    // If value is object { effect: 'deny' }, we CREATE it.
+                }
+
+                if (!value || value === 'none') {
                     // Remove permission
                     await RolePermission.destroy({
                         where: {
@@ -387,19 +455,39 @@ async function updateRolePermissions(roleId, permissions) {
                         }
                     });
                 } else {
+                    const policy = mapLevelToPolicy(value);
+
                     // Update or create permission
-                    const [rolePermission] = await RolePermission.findOrCreate({
+                    const [rolePermission, created] = await RolePermission.findOrCreate({
                         where: {
                             roleId,
                             permissionId: permission.id
                         },
                         defaults: {
-                            level
+                            level: typeof value === 'string' ? value : 'custom',
+                            effect: policy.effect,
+                            scope: policy.scope,
+                            conditions: policy.conditions
                         }
                     });
-                    
-                    if (rolePermission.level !== level) {
-                        await rolePermission.update({ level });
+
+                    // Update if changed
+                    const newData = {
+                        level: typeof value === 'string' ? value : 'custom',
+                        effect: policy.effect,
+                        scope: policy.scope,
+                        conditions: policy.conditions
+                    };
+
+                    if (created) return;
+
+                    // Check if update needed
+                    if (rolePermission.effect !== newData.effect ||
+                        rolePermission.scope !== newData.scope ||
+                        JSON.stringify(rolePermission.conditions) !== JSON.stringify(newData.conditions) ||
+                        rolePermission.level !== newData.level) {
+
+                        await rolePermission.update(newData);
                     }
                 }
             }
@@ -410,9 +498,13 @@ async function updateRolePermissions(roleId, permissions) {
 /**
  * Update a single permission for a role
  */
-async function updateSinglePermission(roleId, module, action, level) {
+/**
+ * Update a single permission for a role
+ * Accepts level (string) OR policy object { effect, scope, conditions }
+ */
+async function updateSinglePermission(roleId, module, action, value) {
     const Permission = require('../models/Permission');
-    
+
     const permission = await Permission.findOne({
         where: { resource: module, action }
     });
@@ -421,7 +513,7 @@ async function updateSinglePermission(roleId, module, action, level) {
         throw new Error(`Permission not found: ${module}.${action}`);
     }
 
-    if (level === 'none' || !level) {
+    if (!value || value === 'none') {
         // Remove permission
         await RolePermission.destroy({
             where: {
@@ -431,21 +523,39 @@ async function updateSinglePermission(roleId, module, action, level) {
         });
         return null;
     } else {
+        const policy = mapLevelToPolicy(value);
+
         // Update or create permission
-        const [rolePermission] = await RolePermission.findOrCreate({
+        const [rolePermission, created] = await RolePermission.findOrCreate({
             where: {
                 roleId,
                 permissionId: permission.id
             },
             defaults: {
-                level
+                level: typeof value === 'string' ? value : 'custom',
+                effect: policy.effect,
+                scope: policy.scope,
+                conditions: policy.conditions
             }
         });
-        
-        if (rolePermission.level !== level) {
-            await rolePermission.update({ level });
+
+        const newData = {
+            level: typeof value === 'string' ? value : 'custom',
+            effect: policy.effect,
+            scope: policy.scope,
+            conditions: policy.conditions
+        };
+
+        if (!created) {
+            if (rolePermission.effect !== newData.effect ||
+                rolePermission.scope !== newData.scope ||
+                JSON.stringify(rolePermission.conditions) !== JSON.stringify(newData.conditions) ||
+                rolePermission.level !== newData.level) {
+
+                await rolePermission.update(newData);
+            }
         }
-        
+
         return rolePermission;
     }
 }
@@ -453,18 +563,21 @@ async function updateSinglePermission(roleId, module, action, level) {
 /**
  * Update all permissions for a specific module
  */
+/**
+ * Update all permissions for a specific module
+ */
 async function updateModulePermissions(roleId, module, actions) {
-    // actions format: { create: 'full', read: 'full', update: 'none', delete: 'full', export: 'read' }
+    // actions format: { create: 'full', read: { effect: 'allow' }, ... }
     const Permission = require('../models/Permission');
-    
+
     const permissions = await Permission.findAll({
         where: { resource: module }
     });
 
     for (const permission of permissions) {
-        const level = actions[permission.action];
-        
-        if (level === 'none' || !level || level === undefined) {
+        const value = actions[permission.action];
+
+        if (value === 'none' || !value || value === undefined) {
             // Remove permission
             await RolePermission.destroy({
                 where: {
@@ -473,19 +586,37 @@ async function updateModulePermissions(roleId, module, actions) {
                 }
             });
         } else {
+            const policy = mapLevelToPolicy(value);
+
             // Update or create permission
-            const [rolePermission] = await RolePermission.findOrCreate({
+            const [rolePermission, created] = await RolePermission.findOrCreate({
                 where: {
                     roleId,
                     permissionId: permission.id
                 },
                 defaults: {
-                    level
+                    level: typeof value === 'string' ? value : 'custom',
+                    effect: policy.effect,
+                    scope: policy.scope,
+                    conditions: policy.conditions
                 }
             });
-            
-            if (rolePermission.level !== level) {
-                await rolePermission.update({ level });
+
+            const newData = {
+                level: typeof value === 'string' ? value : 'custom',
+                effect: policy.effect,
+                scope: policy.scope,
+                conditions: policy.conditions
+            };
+
+            if (!created) {
+                if (rolePermission.effect !== newData.effect ||
+                    rolePermission.scope !== newData.scope ||
+                    JSON.stringify(rolePermission.conditions) !== JSON.stringify(newData.conditions) ||
+                    rolePermission.level !== newData.level) {
+
+                    await rolePermission.update(newData);
+                }
             }
         }
     }
@@ -496,7 +627,7 @@ async function updateModulePermissions(roleId, module, actions) {
  */
 async function setAllowAllForModule(roleId, module, allowAll) {
     const Permission = require('../models/Permission');
-    
+
     const permissions = await Permission.findAll({
         where: { resource: module }
     });
@@ -513,7 +644,7 @@ async function setAllowAllForModule(roleId, module, allowAll) {
                     level: 'full'
                 }
             });
-            
+
             if (rolePermission.level !== 'full') {
                 await rolePermission.update({ level: 'full' });
             }
@@ -538,5 +669,7 @@ module.exports = {
     updateModulePermissions,
     setAllowAllForModule,
     DEFAULT_TENANT_ROLES,
-    ACCESS_MATRIX
+    ACCESS_MATRIX,
+    LEVEL_TO_ACTIONS,
+    mapLevelToPolicy
 };

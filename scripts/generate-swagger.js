@@ -5,8 +5,8 @@ const swaggerJSDoc = require('swagger-jsdoc');
 const options = {
   definition: {
     openapi: '3.0.0',
-    info: { 
-      title: 'School ERP API', 
+    info: {
+      title: 'School ERP API',
       version: '2.0.0',
       description: 'School Management System API with RBAC and secure cookie-based authentication',
       contact: {

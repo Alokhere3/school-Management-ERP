@@ -5,8 +5,8 @@
 const asyncHandler = require('../utils/asyncHandler');
 const Role = require('../models/Role');
 const { sendError } = require('../utils/errorMapper');
-const { 
-    getRolePermissions, 
+const {
+    getRolePermissions,
     updateRolePermissions,
     updateSinglePermission,
     updateModulePermissions,
@@ -31,7 +31,7 @@ const getRolePermissionsHandler = asyncHandler(async (req, res) => {
         // Check access: School Admin can only access their tenant's roles
         const primaryRole = await getUserPrimaryRole(req.user.id, userTenantId);
         const isSuperAdmin = primaryRole && primaryRole.isSystemRole && primaryRole.name === 'Super Admin';
-        
+
         if (!isSuperAdmin && role.tenantId && role.tenantId !== userTenantId) {
             return res.status(403).json({ success: false, error: 'Forbidden: Cannot access roles from other tenants' });
         }
@@ -66,7 +66,7 @@ const updateRolePermissionsHandler = asyncHandler(async (req, res) => {
         // Check access: School Admin can only update their tenant's roles
         const primaryRole = await getUserPrimaryRole(req.user.id, userTenantId);
         const isSuperAdmin = primaryRole && primaryRole.isSystemRole && primaryRole.name === 'Super Admin';
-        
+
         if (!isSuperAdmin) {
             if (role.isSystemRole) {
                 return res.status(403).json({ success: false, error: 'Forbidden: Cannot modify system role permissions' });
@@ -77,6 +77,11 @@ const updateRolePermissionsHandler = asyncHandler(async (req, res) => {
         }
 
         await updateRolePermissions(id, permissions);
+
+        // Invalidate cache
+        if (req.permissionResolver) {
+            await req.permissionResolver.invalidateRoleUsers(id, userTenantId);
+        }
 
         // Return updated permissions
         const updatedPermissions = await getRolePermissions(id);
@@ -94,14 +99,32 @@ const updateRolePermissionsHandler = asyncHandler(async (req, res) => {
 const updateSinglePermissionHandler = asyncHandler(async (req, res) => {
     try {
         const { id, module, action } = req.params;
-        const { level } = req.body;
+        const { level, policy } = req.body;
         const userTenantId = req.user.tenantId;
 
-        if (!level || !['none', 'read', 'limited', 'full'].includes(level)) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Invalid level. Must be one of: none, read, limited, full' 
+        // Determine value: policy takes precedence
+        const value = policy || level;
+
+        if (!value) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing permission value. Provide "level" (string) or "policy" (object)'
             });
+        }
+
+        // Basic validation
+        if (typeof value === 'string') {
+            if (!['none', 'read', 'limited', 'full'].includes(value)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid level. Must be one of: none, read, limited, full'
+                });
+            }
+        } else if (typeof value === 'object') {
+            // Basic policy validation
+            if (value.effect && !['allow', 'deny'].includes(value.effect)) {
+                return res.status(400).json({ success: false, error: 'Invalid effect' });
+            }
         }
 
         const role = await Role.findByPk(id);
@@ -112,7 +135,7 @@ const updateSinglePermissionHandler = asyncHandler(async (req, res) => {
         // Check access: School Admin can only update their tenant's roles
         const primaryRole = await getUserPrimaryRole(req.user.id, userTenantId);
         const isSuperAdmin = primaryRole && primaryRole.isSystemRole && primaryRole.name === 'Super Admin';
-        
+
         if (!isSuperAdmin) {
             if (role.isSystemRole) {
                 return res.status(403).json({ success: false, error: 'Forbidden: Cannot modify system role permissions' });
@@ -122,16 +145,22 @@ const updateSinglePermissionHandler = asyncHandler(async (req, res) => {
             }
         }
 
-        await updateSinglePermission(id, module, action, level);
+        // Pass 'value' to service
+        await updateSinglePermission(id, module, action, value);
+
+        // Invalidate cache
+        if (req.permissionResolver) {
+            await req.permissionResolver.invalidateRoleUsers(id, userTenantId);
+        }
 
         // Return updated permissions for the module
         const allPermissions = await getRolePermissions(id);
         const modulePermissions = allPermissions.find(p => p.module === module);
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             data: modulePermissions || { module, permissions: {} },
-            message: `Permission ${module}.${action} updated to ${level}`
+            message: `Permission ${module}.${action} updated`
         });
     } catch (error) {
         if (error.message && error.message.includes('Permission not found')) {
@@ -152,9 +181,9 @@ const updateModulePermissionsHandler = asyncHandler(async (req, res) => {
         const userTenantId = req.user.tenantId;
 
         if (!actions || typeof actions !== 'object') {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Actions object is required. Format: { create: "full", read: "full", update: "none", delete: "full", export: "read" }' 
+            return res.status(400).json({
+                success: false,
+                error: 'Actions object is required. Format: { create: "full", read: "full", update: "none", delete: "full", export: "read" }'
             });
         }
 
@@ -166,7 +195,7 @@ const updateModulePermissionsHandler = asyncHandler(async (req, res) => {
         // Check access: School Admin can only update their tenant's roles
         const primaryRole = await getUserPrimaryRole(req.user.id, userTenantId);
         const isSuperAdmin = primaryRole && primaryRole.isSystemRole && primaryRole.name === 'Super Admin';
-        
+
         if (!isSuperAdmin) {
             if (role.isSystemRole) {
                 return res.status(403).json({ success: false, error: 'Forbidden: Cannot modify system role permissions' });
@@ -178,12 +207,17 @@ const updateModulePermissionsHandler = asyncHandler(async (req, res) => {
 
         await updateModulePermissions(id, module, actions);
 
+        // Invalidate cache
+        if (req.permissionResolver) {
+            await req.permissionResolver.invalidateRoleUsers(id, userTenantId);
+        }
+
         // Return updated permissions for the module
         const allPermissions = await getRolePermissions(id);
         const modulePermissions = allPermissions.find(p => p.module === module);
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             data: modulePermissions || { module, permissions: {} },
             message: `Permissions for module ${module} updated`
         });
@@ -203,9 +237,9 @@ const setAllowAllHandler = asyncHandler(async (req, res) => {
         const userTenantId = req.user.tenantId;
 
         if (typeof allowAll !== 'boolean') {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'allowAll must be a boolean value' 
+            return res.status(400).json({
+                success: false,
+                error: 'allowAll must be a boolean value'
             });
         }
 
@@ -217,7 +251,7 @@ const setAllowAllHandler = asyncHandler(async (req, res) => {
         // Check access: School Admin can only update their tenant's roles
         const primaryRole = await getUserPrimaryRole(req.user.id, userTenantId);
         const isSuperAdmin = primaryRole && primaryRole.isSystemRole && primaryRole.name === 'Super Admin';
-        
+
         if (!isSuperAdmin) {
             if (role.isSystemRole) {
                 return res.status(403).json({ success: false, error: 'Forbidden: Cannot modify system role permissions' });
@@ -229,12 +263,17 @@ const setAllowAllHandler = asyncHandler(async (req, res) => {
 
         await setAllowAllForModule(id, module, allowAll);
 
+        // Invalidate cache
+        if (req.permissionResolver) {
+            await req.permissionResolver.invalidateRoleUsers(id, userTenantId);
+        }
+
         // Return updated permissions for the module
         const allPermissions = await getRolePermissions(id);
         const modulePermissions = allPermissions.find(p => p.module === module);
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             data: modulePermissions || { module, permissions: {} },
             message: `AllowAll for module ${module} set to ${allowAll}`
         });

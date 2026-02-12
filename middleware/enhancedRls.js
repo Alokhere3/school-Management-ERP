@@ -41,6 +41,9 @@ function createEnhancedRLSMiddleware(db, redisClient = null) {
                 );
             }
 
+            // Attach to request for use in controllers
+            req.permissionResolver = permissionResolver;
+
             const { userId, tenantId } = req.user;
 
             if (!userId || !tenantId) {
@@ -79,7 +82,7 @@ function createEnhancedRLSMiddleware(db, redisClient = null) {
                         raw: true
                     });
                     roles = userRoles.map(ur => ur.role);
-                    
+
                     if (roles.length === 0) {
                         logger.warn({
                             message: 'NO_ROLES_FOUND_FOR_USER',
@@ -116,7 +119,7 @@ function createEnhancedRLSMiddleware(db, redisClient = null) {
                 tenantId,
                 roles: roles || [], // From database, not JWT
                 role: primaryRole,
-                permissions: {}, // Can be populated by PermissionResolver if needed
+                permissions: await permissionResolver.resolvePermissions(userId, tenantId),
                 resolvedAt: new Date(),
                 source: 'database' // Explicit marker that roles came from DB
             };
